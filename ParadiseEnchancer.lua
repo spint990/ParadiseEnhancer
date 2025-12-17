@@ -16,7 +16,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 
 -- ====================================
 -- RÉFÉRENCES JEU
@@ -45,12 +44,12 @@ startBattleRemote.OnClientEvent:Connect(function() end)
 -- ====================================
 local CONFIG = {
     BATTLE_COOLDOWN = 8,
-    MAX_PLAYTIME = 60, -- 50 minutes en secondes (50 * 60)
+    MAX_PLAYTIME = 3000, -- 50 minutes en secondes (50 * 60)
 }
 
 local LEVEL_CASES = {
     "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
-    "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120" 
+    "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120"
 }
 
 -- Cette table sera remplie dynamiquement depuis CasesModule
@@ -143,35 +142,6 @@ local Window = Rayfield:CreateWindow({
     Theme = "Default",
     ToggleUIKeybind = "K",
 })
-
--- ====================================
--- SYSTÈME DE SAUVEGARDE DE CONFIGURATION
--- ====================================
-
--- Sauvegarder la configuration dans _G
-local function saveConfig()
-    _G.AutoCaseConfig = {
-        autoClaimGift = State.autoClaimGift,
-        autoCase = State.autoCase,
-        autoQuestOpen = State.autoQuestOpen,
-        autoQuestPlay = State.autoQuestPlay,
-        autoQuestWin = State.autoQuestWin,
-        autoOpenLevelCases = State.autoOpenLevelCases,
-        autoTeleportMeteor = State.autoTeleportMeteor,
-        autoReconnect = State.autoReconnect,
-        selectedCase = State.selectedCase,
-        caseQuantity = State.caseQuantity,
-        wildMode = State.wildMode,
-    }
-end
-
--- Charger la configuration depuis _G
-local function loadConfig()
-    if _G.AutoCaseConfig then
-        return _G.AutoCaseConfig
-    end
-    return nil
-end
 
 -- ====================================
 -- FONCTIONS UTILITAIRES
@@ -432,9 +402,6 @@ end
 
 -- Reconnexion automatique du joueur
 local function reconnectPlayer()
-    -- Sauvegarder la config dans le clipboard juste avant de se reconnecter
-    saveConfig()
-    
     local placeId = game.PlaceId
     local jobId = game.JobId
     
@@ -546,9 +513,7 @@ TabQuests:CreateToggle({
     Name = "Auto Quest Open Cases",
     CurrentValue = false,
     Flag = "AutoQuestOpen",
-    Callback = function(value)
-        State.autoQuestOpen = value
-    end,
+    Callback = function(value) State.autoQuestOpen = value end,
 })
 
 TabQuests:CreateToggle({
@@ -649,13 +614,7 @@ TabMisc:CreateToggle({
     Flag = "AutoReconnect",
     Callback = function(value)
         State.autoReconnect = value
-        saveConfig()
     end,
-})
-
-TabMisc:CreateParagraph({
-    Title = "ℹ️ Auto-Save",
-    Content = "Your config is automatically saved just before reconnecting and restored when the script relaunches!"
 })
 
 -- ====================================
@@ -735,52 +694,6 @@ end)
 -- INITIALISATION
 -- ====================================
 State.initialPlaytime = player.Playtime.Value
-
--- Charger la configuration sauvegardée
-local savedConfig = loadConfig()
-if savedConfig then
-    -- Appliquer la configuration chargée
-    State.autoClaimGift = savedConfig.autoClaimGift or false
-    State.autoCase = savedConfig.autoCase or false
-    State.autoQuestOpen = savedConfig.autoQuestOpen or false
-    State.autoQuestPlay = savedConfig.autoQuestPlay or false
-    State.autoQuestWin = savedConfig.autoQuestWin or false
-    State.autoOpenLevelCases = savedConfig.autoOpenLevelCases or false
-    State.autoTeleportMeteor = savedConfig.autoTeleportMeteor or false
-    State.autoReconnect = savedConfig.autoReconnect or false
-    State.selectedCase = savedConfig.selectedCase or AVAILABLE_CASES[1].id
-    State.caseQuantity = savedConfig.caseQuantity or 1
-    State.wildMode = savedConfig.wildMode or false
-    
-    -- Mettre à jour l'UI avec les valeurs chargées
-    task.wait(0.5) -- Attendre que l'UI soit complètement chargée
-    
-    ToggleCases:Set(State.autoCase)
-    
-    -- Trouver et définir la case sélectionnée dans le dropdown
-    for _, caseData in ipairs(AVAILABLE_CASES) do
-        if caseData.id == State.selectedCase then
-            local unitPrice = State.wildMode and getWildPrice(caseData.id) or caseData.price
-            local modeText = State.wildMode and " (Wild)" or ""
-            DropdownCase:Set(caseData.name .. modeText .. " " .. formatPrice(unitPrice * State.caseQuantity, caseData.currency))
-            break
-        end
-    end
-    
-    -- Déclencher updateBattleUIState si nécessaire
-    if State.autoQuestPlay or State.autoQuestWin then
-        updateBattleUIState()
-    end
-    
-    -- Déclencher les updates de cooldowns si nécessaire
-    if State.autoClaimGift then
-        updateGiftCooldowns()
-    end
-    
-    if State.autoOpenLevelCases then
-        updateLevelCaseCooldowns()
-    end
-end
 
 -- Surveiller l'apparition du Meteor
 local tempFolder = workspace:FindFirstChild("Temp")
