@@ -50,7 +50,7 @@ local CONFIG = {
 
 local LEVEL_CASES = {
     "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
-    "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120"
+    "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120" 
 }
 
 -- Cette table sera remplie dynamiquement depuis CasesModule
@@ -147,10 +147,12 @@ local Window = Rayfield:CreateWindow({
 -- ====================================
 -- SYSTÈME DE SAUVEGARDE DE CONFIGURATION
 -- ====================================
-local CONFIG_FILE_NAME = "AutoCaseConfig"
+local CONFIG_PREFIX = "AUTOCASE_CFG:"
 
--- Sauvegarder la configuration actuelle
+-- Sauvegarder la configuration dans le presse-papier
 local function saveConfig()
+    if not setclipboard then return end
+    
     local config = {
         autoClaimGift = State.autoClaimGift,
         autoCase = State.autoCase,
@@ -165,28 +167,29 @@ local function saveConfig()
         wildMode = State.wildMode,
     }
     
-    local success, err = pcall(function()
-        writefile(CONFIG_FILE_NAME, HttpService:JSONEncode(config))
+    pcall(function()
+        setclipboard(CONFIG_PREFIX .. HttpService:JSONEncode(config))
     end)
-    
-    if not success then
-        warn("Erreur lors de la sauvegarde de la config:", err)
-    end
 end
 
--- Charger la configuration sauvegardée
+-- Charger la configuration depuis le presse-papier
 local function loadConfig()
-    local success, result = pcall(function()
-        if isfile(CONFIG_FILE_NAME) then
-            local data = readfile(CONFIG_FILE_NAME)
-            return HttpService:JSONDecode(data)
-        end
-        return nil
-    end)
+    if not getclipboard then return nil end
     
-    if success and result then
-        return result
+    local success, clipboardData = pcall(getclipboard)
+    if not success or not clipboardData then return nil end
+    
+    if clipboardData:match("^" .. CONFIG_PREFIX) then
+        local configString = clipboardData:sub(#CONFIG_PREFIX + 1)
+        local decodeSuccess, result = pcall(function()
+            return HttpService:JSONDecode(configString)
+        end)
+        
+        if decodeSuccess and result then
+            return result
+        end
     end
+    
     return nil
 end
 
@@ -449,6 +452,9 @@ end
 
 -- Reconnexion automatique du joueur
 local function reconnectPlayer()
+    -- Sauvegarder la config dans le clipboard juste avant de se reconnecter
+    saveConfig()
+    
     local placeId = game.PlaceId
     local jobId = game.JobId
     
@@ -481,7 +487,6 @@ ToggleCases = TabCases:CreateToggle({
     Flag = "AutoCaseOpen",
     Callback = function(value)
         State.autoCase = value
-        saveConfig()
     end,
 })
 
@@ -496,7 +501,6 @@ DropdownCase = TabCases:CreateDropdown({
         for _, caseData in ipairs(AVAILABLE_CASES) do
             if optionName:find(caseData.name, 1, true) == 1 then
                 State.selectedCase = caseData.id
-                saveConfig()
                 break
             end
         end
@@ -512,7 +516,6 @@ TabCases:CreateDropdown({
     Callback = function(option)
         local value = type(option) == "table" and option[1] or option
         State.caseQuantity = tonumber(value) or 1
-        saveConfig()
         
         local newOptions = getCaseDropdownOptions()
         DropdownCase:Refresh(newOptions)
@@ -536,7 +539,6 @@ TabCases:CreateToggle({
     Flag = "WildMode",
     Callback = function(value)
         State.wildMode = value
-        saveConfig()
         
         local newOptions = getCaseDropdownOptions()
         DropdownCase:Refresh(newOptions)
@@ -566,7 +568,6 @@ TabQuests:CreateToggle({
     Flag = "AutoQuestOpen",
     Callback = function(value)
         State.autoQuestOpen = value
-        saveConfig()
     end,
 })
 
@@ -576,7 +577,6 @@ TabQuests:CreateToggle({
     Flag = "AutoQuestPlay",
     Callback = function(value)
         State.autoQuestPlay = value
-        saveConfig()
         updateBattleUIState()
     end,
 })
@@ -587,7 +587,6 @@ TabQuests:CreateToggle({
     Flag = "AutoQuestWin",
     Callback = function(value)
         State.autoQuestWin = value
-        saveConfig()
         updateBattleUIState()
     end,
 })
@@ -637,7 +636,6 @@ TabMisc:CreateToggle({
     Flag = "AutoClaimGift",
     Callback = function(value)
         State.autoClaimGift = value
-        saveConfig()
         if value then updateGiftCooldowns() end
     end,
 })
@@ -648,7 +646,6 @@ TabMisc:CreateToggle({
     Flag = "AutoOpenLevelCases",
     Callback = function(value)
         State.autoOpenLevelCases = value
-        saveConfig()
         if value then updateLevelCaseCooldowns() end
     end,
 })
@@ -661,7 +658,6 @@ TabMisc:CreateToggle({
     Flag = "AutoTeleportMeteor",
     Callback = function(value)
         State.autoTeleportMeteor = value
-        saveConfig()
     end,
 })
 
@@ -673,8 +669,12 @@ TabMisc:CreateToggle({
     Flag = "AutoReconnect",
     Callback = function(value)
         State.autoReconnect = value
-        saveConfig()
     end,
+})
+
+TabMisc:CreateParagraph({
+    Title = "ℹ️ Auto-Save",
+    Content = "Your config is automatically saved to clipboard just before reconnecting. It will be restored automatically when the script relaunches!"
 })
 
 -- ====================================
