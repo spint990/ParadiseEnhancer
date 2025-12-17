@@ -147,13 +147,10 @@ local Window = Rayfield:CreateWindow({
 -- ====================================
 -- SYSTÈME DE SAUVEGARDE DE CONFIGURATION
 -- ====================================
-local CONFIG_PREFIX = "AUTOCASE_CFG:"
 
--- Sauvegarder la configuration dans le presse-papier
+-- Sauvegarder la configuration dans _G
 local function saveConfig()
-    if not setclipboard then return end
-    
-    local config = {
+    _G.AutoCaseConfig = {
         autoClaimGift = State.autoClaimGift,
         autoCase = State.autoCase,
         autoQuestOpen = State.autoQuestOpen,
@@ -166,30 +163,13 @@ local function saveConfig()
         caseQuantity = State.caseQuantity,
         wildMode = State.wildMode,
     }
-    
-    pcall(function()
-        setclipboard(CONFIG_PREFIX .. HttpService:JSONEncode(config))
-    end)
 end
 
--- Charger la configuration depuis le presse-papier
+-- Charger la configuration depuis _G
 local function loadConfig()
-    if not getclipboard then return nil end
-    
-    local success, clipboardData = pcall(getclipboard)
-    if not success or not clipboardData then return nil end
-    
-    if clipboardData:match("^" .. CONFIG_PREFIX) then
-        local configString = clipboardData:sub(#CONFIG_PREFIX + 1)
-        local decodeSuccess, result = pcall(function()
-            return HttpService:JSONDecode(configString)
-        end)
-        
-        if decodeSuccess and result then
-            return result
-        end
+    if _G.AutoCaseConfig then
+        return _G.AutoCaseConfig
     end
-    
     return nil
 end
 
@@ -669,12 +649,13 @@ TabMisc:CreateToggle({
     Flag = "AutoReconnect",
     Callback = function(value)
         State.autoReconnect = value
+        saveConfig()
     end,
 })
 
 TabMisc:CreateParagraph({
     Title = "ℹ️ Auto-Save",
-    Content = "Your config is automatically saved to clipboard just before reconnecting. It will be restored automatically when the script relaunches!"
+    Content = "Your config is automatically saved just before reconnecting and restored when the script relaunches!"
 })
 
 -- ====================================
