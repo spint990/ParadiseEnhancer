@@ -15,7 +15,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
 
 -- ====================================
 -- RÉFÉRENCES JEU
@@ -103,7 +102,6 @@ local State = {
     autoQuestWin = true,
     autoOpenLevelCases = true,
     autoTeleportMeteor = false,
-    autoRejoin = true,
     autoSell = true,
     
     -- Configuration
@@ -406,13 +404,7 @@ local function updateBattleUIState()
     end
 end
 
--- Rejoindre le serveur
-local function rejoinServer()
-    -- Utiliser TeleportService pour rejoindre le jeu
-    local success, errorMessage = pcall(function()
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
-    end)
-end
+
 
 -- Forcer le rendu de l'inventaire
 local function forceRenderInventory()
@@ -469,7 +461,7 @@ local function getCaseDropdownOptions()
 end
 
 local ToggleCases, DropdownCase, ToggleQuestOpen, ToggleQuestPlay, ToggleQuestWin
-local ToggleClaimGift, ToggleLevelCases, ToggleRejoin, ToggleSell
+local ToggleClaimGift, ToggleLevelCases, ToggleSell
 
 ToggleCases = TabCases:CreateToggle({
     Name = "Enable Auto Case Opening",
@@ -715,25 +707,6 @@ TabMisc:CreateToggle({
     end,
 })
 
-TabMisc:CreateSection("Auto Rejoin")
-
-ToggleRejoin = TabMisc:CreateToggle({
-    Name = "Auto Rejoin after 50 minutes",
-    CurrentValue = true,
-    Flag = "AutoRejoin",
-    Callback = function(value)
-        State.autoRejoin = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Rejoin",
-                Content = "Auto rejoin after 50 minutes!",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        end
-    end,
-})
-
 TabMisc:CreateSection("Auto Sell")
 
 ToggleSell = TabMisc:CreateToggle({
@@ -765,7 +738,6 @@ TabMisc:CreateButton({
         State.autoQuestPlay = false
         State.autoQuestWin = false
         State.autoOpenLevelCases = false
-        State.autoRejoin = false
         State.autoSell = false
         
         -- Désactiver les toggles UI
@@ -775,7 +747,6 @@ TabMisc:CreateButton({
         ToggleQuestPlay:Set(false)
         ToggleQuestWin:Set(false)
         ToggleLevelCases:Set(false)
-        ToggleRejoin:Set(false)
         ToggleSell:Set(false)
         
         -- Attendre que isCaseReady soit true pour éviter les conflits
@@ -821,12 +792,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
     if State.autoSell and currentTime - State.lastSellTime >= 300 then
         State.lastSellTime = currentTime
         sellUnlockedItems()
-    end
-    
-    -- PRIORITÉ 0: Vérifier si le play time a atteint 50 minutes pour auto rejoin
-    if State.autoRejoin and getCurrentPlayTime() >= 3000 then -- 50 minutes = 3000 secondes
-        rejoinServer()
-        return
     end
     
     -- PRIORITÉ 0: Auto claim gifts
