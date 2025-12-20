@@ -103,7 +103,7 @@ local State = {
     autoOpenLevelCases = true,
     autoTeleportMeteor = false,
     autoSell = true,
-    autoRejoinWhenFirstGiftClaimed = true,
+    autoRejoinWhenGift9Claimed = true,
     
     -- Configuration
     selectedCase = AVAILABLE_CASES[1].id,
@@ -114,6 +114,9 @@ local State = {
         ["TitanHoloKato2014"] = true,
         ["M4A4_Gingerbread"] = true,
         ["DesertEagle_FreezingPoint"] = true,
+        ["AWP_Festive"] = true,
+        ["Karambit_WhiteChristmas"] = true,
+        ["SportGloves_Iced"] = true,
     }, -- Items à ne jamais vendre
     caseQuantity = 5,
     wildMode = false,
@@ -697,9 +700,9 @@ ToggleLevelCases = TabMisc:CreateToggle({
 TabMisc:CreateToggle({
     Name = "Rejoin when Gift 9 claimed",
     CurrentValue = true,
-    Flag = "AutoRejoinWhenFirstGiftClaimed",
+    Flag = "AutoRejoinWhenGift9Claimed",
     Callback = function(value)
-        State.autoRejoinWhenFirstGiftClaimed = value
+        State.autoRejoinWhenGift9Claimed = value
         if value then
             Rayfield:Notify({
                 Title = "Auto Rejoin",
@@ -812,7 +815,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
     updateBattleUIState()
     
     -- Vérifier si Gift9 a été réclamé et rejoindre si activé
-    if State.autoRejoinWhenFirstGiftClaimed and hasClaimedGift9() then
+    if State.autoRejoinWhenGift9Claimed and hasClaimedGift9() then
         Rayfield:Notify({
             Title = "Gift 9 Claimed",
             Content = "Rejoining the game...",
