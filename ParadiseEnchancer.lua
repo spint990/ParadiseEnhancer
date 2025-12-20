@@ -103,6 +103,7 @@ local State = {
     autoOpenLevelCases = true,
     autoTeleportMeteor = false,
     autoSell = true,
+    autoRejoinWhenFirstGiftClaimed = false,
     
     -- Configuration
     selectedCase = AVAILABLE_CASES[1].id,
@@ -330,6 +331,28 @@ local function getNextAvailableGift()
         end
     end
     return nil
+end
+
+-- Vérifie si tous les gifts sont réclamés
+local function areAllGiftsClaimed()
+    for i = 1, 9 do
+        local giftId = "Gift" .. i
+        if not isGiftClaimed(giftId) then
+            return false
+        end
+    end
+    return true
+end
+
+-- Vérifie si au moins un gift a été réclamé
+local function hasClaimedAnyGift()
+    for i = 1, 9 do
+        local giftId = "Gift" .. i
+        if isGiftClaimed(giftId) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Récupérer les données d'une quête par type
@@ -688,6 +711,23 @@ ToggleLevelCases = TabMisc:CreateToggle({
     end,
 })
 
+TabMisc:CreateToggle({
+    Name = "Rejoin when first gift claimed",
+    CurrentValue = false,
+    Flag = "AutoRejoinWhenFirstGiftClaimed",
+    Callback = function(value)
+        State.autoRejoinWhenFirstGiftClaimed = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto Rejoin",
+                Content = "Will rejoin when first gift is claimed!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        end
+    end,
+})
+
 TabMisc:CreateSection("Teleport")
 
 TabMisc:CreateToggle({
@@ -787,6 +827,19 @@ RunService.Heartbeat:Connect(function(deltaTime)
     
     -- Garder l'UI Battle et Main/Windows activés si nécessaire
     updateBattleUIState()
+    
+    -- Vérifier si au moins un gift a été réclamé et rejoindre si activé
+    if State.autoRejoinWhenFirstGiftClaimed and hasClaimedAnyGift() then
+        Rayfield:Notify({
+            Title = "First Gift Claimed",
+            Content = "Rejoining the game...",
+            Duration = 3,
+            Image = 4483362458,
+        })
+        task.wait(1)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+        return
+    end
     
     -- Auto sell items (toutes les 5 minutes) - Pas de priorité, en parallèle
     if State.autoSell and currentTime - State.lastSellTime >= 300 then
