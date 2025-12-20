@@ -103,7 +103,7 @@ local State = {
     autoOpenLevelCases = true,
     autoTeleportMeteor = false,
     autoSell = true,
-    autoRejoinWhenFirstGiftClaimed = false,
+    autoRejoinWhenFirstGiftClaimed = true,
     
     -- Configuration
     selectedCase = AVAILABLE_CASES[1].id,
@@ -333,26 +333,9 @@ local function getNextAvailableGift()
     return nil
 end
 
--- Vérifie si tous les gifts sont réclamés
-local function areAllGiftsClaimed()
-    for i = 1, 9 do
-        local giftId = "Gift" .. i
-        if not isGiftClaimed(giftId) then
-            return false
-        end
-    end
-    return true
-end
-
--- Vérifie si au moins un gift a été réclamé
-local function hasClaimedAnyGift()
-    for i = 1, 9 do
-        local giftId = "Gift" .. i
-        if isGiftClaimed(giftId) then
-            return true
-        end
-    end
-    return false
+-- Vérifie si le Gift9 a été réclamé
+local function hasClaimedGift9()
+    return isGiftClaimed("Gift9")
 end
 
 -- Récupérer les données d'une quête par type
@@ -712,15 +695,15 @@ ToggleLevelCases = TabMisc:CreateToggle({
 })
 
 TabMisc:CreateToggle({
-    Name = "Rejoin when first gift claimed",
-    CurrentValue = false,
+    Name = "Rejoin when Gift 9 claimed",
+    CurrentValue = true,
     Flag = "AutoRejoinWhenFirstGiftClaimed",
     Callback = function(value)
         State.autoRejoinWhenFirstGiftClaimed = value
         if value then
             Rayfield:Notify({
                 Title = "Auto Rejoin",
-                Content = "Will rejoin when first gift is claimed!",
+                Content = "Will rejoin when Gift 9 is claimed!",
                 Duration = 3,
                 Image = 4483362458,
             })
@@ -828,10 +811,10 @@ RunService.Heartbeat:Connect(function(deltaTime)
     -- Garder l'UI Battle et Main/Windows activés si nécessaire
     updateBattleUIState()
     
-    -- Vérifier si au moins un gift a été réclamé et rejoindre si activé
-    if State.autoRejoinWhenFirstGiftClaimed and hasClaimedAnyGift() then
+    -- Vérifier si Gift9 a été réclamé et rejoindre si activé
+    if State.autoRejoinWhenFirstGiftClaimed and hasClaimedGift9() then
         Rayfield:Notify({
-            Title = "First Gift Claimed",
+            Title = "Gift 9 Claimed",
             Content = "Rejoining the game...",
             Duration = 3,
             Image = 4483362458,
