@@ -106,7 +106,7 @@ local State = {
     autoRejoinWhenGift9Claimed = true,
     
     -- Configuration
-    selectedCase = AVAILABLE_CASES[1].id,
+    selectedCase = "FESTIVE",
     itemWhitelist = {
         -- Ajoutez ici les items à ne jamais vendre
         ["ButterflyKnife_Frostwing"] = true,
@@ -492,7 +492,7 @@ ToggleCases = TabCases:CreateToggle({
 DropdownCase = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = getCaseDropdownOptions(),
-    CurrentOption = {AVAILABLE_CASES[1].name .. " " .. formatPrice(AVAILABLE_CASES[1].price, AVAILABLE_CASES[1].currency)},
+    CurrentOption = {"Festive Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
