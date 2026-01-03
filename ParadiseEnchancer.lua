@@ -820,39 +820,44 @@ RunService.Heartbeat:Connect(function(deltaTime)
     local winData = getQuestData("Win")
     local openData = getQuestData("Open")
     local currentTickets = getPlayerTickets()
+    local currentBalance = getPlayerBalance()
     
-    -- PRIORITÉ 1: Quest Play Battles
-    if State.autoQuestPlay and playData and playData.remaining > 0 then
+    -- PRIORITÉ 1: Ouvrir 5 cases LIGHT en Wild si balance > 170 000
+    if currentBalance > 170000 then
+        openItem("LIGHT", false, 5, true)
+    
+    -- PRIORITÉ 2: Quest Play Battles
+    elseif State.autoQuestPlay and playData and playData.remaining > 0 then
         if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot(string.upper(playData.subject))
         end
     
-    -- PRIORITÉ 2: Quest Win Battles (seulement si pas de Play quest)
+    -- PRIORITÉ 3: Quest Win Battles (seulement si pas de Play quest)
     elseif State.autoQuestWin and winData and winData.remaining > 0 then
         if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot("CLASSIC")
         end
     
-    -- PRIORITÉ 3: Cases LEVEL
+    -- PRIORITÉ 4: Cases LEVEL
     elseif State.autoOpenLevelCases and State.nextLevelCaseCooldown <= os.time() and State.nextLevelCaseId then
         if openItem(State.nextLevelCaseId, false, 1) then
             task.delay(1, updateLevelCaseCooldowns)
         end
     
-    -- PRIORITÉ 4: Auto claim gifts (seulement si un gift est disponible)
+    -- PRIORITÉ 5: Auto claim gifts (seulement si un gift est disponible)
     elseif State.autoClaimGift and getNextAvailableGift() then
         local availableGift = getNextAvailableGift()
         if openItem(availableGift, true) then
             markGiftAsClaimed(availableGift)
         end
     
-    -- PRIORITÉ 5: Ouvrir Gingerbread cases (tant que Tickets >= 50)
+    -- PRIORITÉ 6: Ouvrir Gingerbread cases (tant que Tickets >= 50)
     elseif State.autoCase and currentTickets >= 50 then
         openItem(State.selectedCase, false, State.caseQuantity, State.wildMode)
     
-    -- PRIORITÉ 6: Quest Open Cases (quand Tickets < 50)
+    -- PRIORITÉ 7: Quest Open Cases (quand Tickets < 50)
     elseif State.autoQuestOpen and openData and openData.remaining > 0 then
         openItem(openData.subject, false, math.min(5, openData.remaining), false)
     end
