@@ -841,13 +841,11 @@ RunService.Heartbeat:Connect(function(deltaTime)
             task.delay(1, updateLevelCaseCooldowns)
         end
     
-    -- PRIORITÉ 4: Auto claim gifts
-    elseif State.autoClaimGift then
+    -- PRIORITÉ 4: Auto claim gifts (seulement si un gift est disponible)
+    elseif State.autoClaimGift and getNextAvailableGift() then
         local availableGift = getNextAvailableGift()
-        if availableGift then
-            if openItem(availableGift, true) then
-                markGiftAsClaimed(availableGift)
-            end
+        if openItem(availableGift, true) then
+            markGiftAsClaimed(availableGift)
         end
     
     -- PRIORITÉ 5: Ouvrir Gingerbread cases (tant que Tickets >= 50)
