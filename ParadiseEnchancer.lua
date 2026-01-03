@@ -106,17 +106,10 @@ local State = {
     autoRejoinWhenGift9Claimed = true,
     
     -- Configuration
-    selectedCase = "FESTIVE",
+    selectedCase = "GINGERBREAD",
     itemWhitelist = {
         -- Ajoutez ici les items à ne jamais vendre
-        ["ButterflyKnife_Frostwing"] = true,
-        ["DriverGloves_RezantheRed"] = true,
         ["TitanHoloKato2014"] = true,
-        ["M4A4_Gingerbread"] = true,
-        ["DesertEagle_FreezingPoint"] = true,
-        ["AWP_Festive"] = true,
-        ["Karambit_WhiteChristmas"] = true,
-        ["SportGloves_Iced"] = true,
     }, -- Items à ne jamais vendre
     caseQuantity = 5,
     wildMode = false,
@@ -492,7 +485,7 @@ ToggleCases = TabCases:CreateToggle({
 DropdownCase = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = getCaseDropdownOptions(),
-    CurrentOption = {"Festive Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
+    CurrentOption = {"Gingerbread Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
