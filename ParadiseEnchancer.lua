@@ -101,7 +101,6 @@ local State = {
     autoQuestPlay = true,
     autoQuestWin = true,
     autoOpenLevelCases = true,
-    autoTeleportMeteor = false,
     autoSell = true,
     autoRejoinWhenGift9Claimed = true,
     
@@ -707,25 +706,6 @@ TabMisc:CreateToggle({
     end,
 })
 
-TabMisc:CreateSection("Teleport")
-
-TabMisc:CreateToggle({
-    Name = "Auto Teleport to Meteor",
-    CurrentValue = false,
-    Flag = "AutoTeleportMeteor",
-    Callback = function(value)
-        State.autoTeleportMeteor = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Teleport Meteor",
-                Content = "Auto teleport to meteor enabled!",
-                Duration = 3,
-                Image = 4483362458,
-            })
-        end
-    end,
-})
-
 TabMisc:CreateSection("Auto Sell")
 
 ToggleSell = TabMisc:CreateToggle({
@@ -801,6 +781,13 @@ TabMisc:CreateButton({
 -- ====================================
 -- BOUCLE PRINCIPALE
 -- ====================================
+-- Nouveau système de priorité:
+-- 1. Quest Play Battles (priorité max)
+-- 2. Quest Win Battles (si pas de Play)
+-- 3. Ouvrir Gingerbread cases (tant que Tickets >= 50)
+-- 4. Quest Open Cases (quand Tickets < 50)
+-- Les quêtes battles reprennent toujours la priorité dès qu'elles sont disponibles
+
 RunService.Heartbeat:Connect(function(deltaTime)
     local currentTime = tick()
     
@@ -820,62 +807,56 @@ RunService.Heartbeat:Connect(function(deltaTime)
         return
     end
     
-    -- Auto sell items (toutes les 5 minutes) - Pas de priorité, en parallèle
+    -- Auto sell items (toutes les 5 minutes) - En parallèle, pas de priorité
     if State.autoSell and currentTime - State.lastSellTime >= 300 then
         State.lastSellTime = currentTime
         sellUnlockedItems()
     end
     
-    -- PRIORITÉ 0: Auto claim gifts
-    if State.autoClaimGift then
-        local availableGift = getNextAvailableGift()
-        if availableGift then
-            -- Ouvrir le gift (utilise openItem qui gère le cooldown global)
-            if openItem(availableGift, true) then
-                -- Marquer le gift comme réclamé dans les 2 emplacements
-                markGiftAsClaimed(availableGift)
-            end
-        end
-    end
+    -- ====================================
+    -- SYSTÈME DE PRIORITÉ PRINCIPAL (une seule action à la fois)
+    -- ====================================
+    local playData = getQuestData("Play")
+    local winData = getQuestData("Win")
+    local openData = getQuestData("Open")
+    local currentTickets = getPlayerTickets()
     
-    -- PRIORITÉ 1: Cases LEVEL
-    if State.autoOpenLevelCases then
-        if State.nextLevelCaseCooldown <= os.time() and State.nextLevelCaseId then
-            if openItem(State.nextLevelCaseId, false, 1) then
-                task.delay(1, updateLevelCaseCooldowns)
-            end
-        end
-    end
-    
-    -- PRIORITÉ 2: Quest Open
-    if State.autoQuestOpen then
-        local openData = getQuestData("Open")
-        if openData and openData.remaining > 0 then
-            openItem(openData.subject, false, math.min(5, openData.remaining), false)
-        end
-    end
-    
-    -- PRIORITÉ 3: Auto case opener
-    if State.autoCase then
-        openItem(State.selectedCase, false, State.caseQuantity, State.wildMode)
-    end
-    
-    -- Quest Play
-    if State.autoQuestPlay then
-        local playData = getQuestData("Play")
-        if playData and playData.remaining > 0 and currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
+    -- PRIORITÉ 1: Quest Play Battles
+    if State.autoQuestPlay and playData and playData.remaining > 0 then
+        if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot(string.upper(playData.subject))
         end
-    end
     
-    -- Quest Win (seulement si Play n'est pas actif ou pas de quête Play)
-    if State.autoQuestWin and not (State.autoQuestPlay and getQuestData("Play")) then
-        local winData = getQuestData("Win")
-        if winData and winData.remaining > 0 and currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
+    -- PRIORITÉ 2: Quest Win Battles (seulement si pas de Play quest)
+    elseif State.autoQuestWin and winData and winData.remaining > 0 then
+        if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot("CLASSIC")
         end
+    
+    -- PRIORITÉ 3: Cases LEVEL
+    elseif State.autoOpenLevelCases and State.nextLevelCaseCooldown <= os.time() and State.nextLevelCaseId then
+        if openItem(State.nextLevelCaseId, false, 1) then
+            task.delay(1, updateLevelCaseCooldowns)
+        end
+    
+    -- PRIORITÉ 4: Auto claim gifts
+    elseif State.autoClaimGift then
+        local availableGift = getNextAvailableGift()
+        if availableGift then
+            if openItem(availableGift, true) then
+                markGiftAsClaimed(availableGift)
+            end
+        end
+    
+    -- PRIORITÉ 5: Ouvrir Gingerbread cases (tant que Tickets >= 50)
+    elseif State.autoCase and currentTickets >= 50 then
+        openItem(State.selectedCase, false, State.caseQuantity, State.wildMode)
+    
+    -- PRIORITÉ 6: Quest Open Cases (quand Tickets < 50)
+    elseif State.autoQuestOpen and openData and openData.remaining > 0 then
+        openItem(openData.subject, false, math.min(5, openData.remaining), false)
     end
     
     -- Mise à jour des labels
@@ -886,27 +867,7 @@ end)
 -- INITIALISATION
 -- ====================================
 
--- Détecter les météores dès qu'ils apparaissent dans workspace.Misc
-local miscFolder = workspace:WaitForChild("Misc")
-
--- Fonction pour surveiller les nouveaux météores
-local function watchForMeteors()
-    miscFolder.ChildAdded:Connect(function(child)
-        if State.autoTeleportMeteor and child.Name == "MeteorHitHitbox" and player.Character and player.Character.PrimaryPart then
-            -- Attendre un court instant pour que le météore soit bien initialisé
-            task.wait(0.05)
-            
-            -- Récupérer la position via la part "Hit"
-            local hitPart = child:FindFirstChild("Hit")
-            if hitPart and hitPart:IsA("BasePart") then
-                local meteorPosition = hitPart.Position
-                -- Se téléporter à la position X/Z du météore, Y au sol
-                local targetPosition = Vector3.new(meteorPosition.X, 5, meteorPosition.Z)
-                player.Character:SetPrimaryPartCFrame(CFrame.new(targetPosition))
-            end
-        end
-    end)
+-- Initialiser les cooldowns des cases LEVEL au démarrage
+if State.autoOpenLevelCases then
+    updateLevelCaseCooldowns()
 end
-
--- Démarrer la surveillance
-watchForMeteors()
