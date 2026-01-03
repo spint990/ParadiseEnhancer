@@ -823,7 +823,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
     local currentBalance = getPlayerBalance()
     
     -- PRIORITÉ 1: Ouvrir 5 cases LIGHT en Wild si balance > 170 000
-    if currentBalance > 170000 then
+    if State.isCaseReady and currentBalance > 170000 then
         openItem("LIGHT", false, 5, true)
     
     -- PRIORITÉ 2: Quest Play Battles
