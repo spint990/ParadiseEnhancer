@@ -7,7 +7,6 @@
 --   • Complétion automatique des quêtes (Open/Play/Win)
 --   • Création automatique de battles avec bot
 --   • Auto ouverture des cases LEVEL
---   • Auto rejoin sur un serveur différent
 -- ====================================
 
 -- ====================================
@@ -17,7 +16,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 
 -- ====================================
 -- RÉFÉRENCES JEU
@@ -105,7 +103,7 @@ local State = {
     autoQuestWin = true,
     autoOpenLevelCases = true,
     autoSell = true,
-    autoRejoinHourly = true,
+    autoRejoinGift9 = true,
     
     -- Configuration
     selectedCase = "GalaxyCase",
@@ -126,9 +124,6 @@ local State = {
     
     -- Cooldown global pour toutes les caisses/gifts
     isCaseReady = true,
-    
-    -- Rejoin horaire (en secondes de playtime)
-    rejoinPlaytime = 3600, -- 1 heure = 3600 secondes
 }
 
 -- ====================================
@@ -677,6 +672,23 @@ ToggleClaimGift = TabMisc:CreateToggle({
     end,
 })
 
+TabMisc:CreateToggle({
+    Name = "Auto Rejoin when Gift9 opened",
+    CurrentValue = true,
+    Flag = "AutoRejoinGift9",
+    Callback = function(value)
+        State.autoRejoinGift9 = value
+        if value then
+            Rayfield:Notify({
+                Title = "Auto Rejoin Gift9",
+                Content = "Will rejoin when Gift9 is claimed!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        end
+    end,
+})
+
 ToggleLevelCases = TabMisc:CreateToggle({
     Name = "Auto Open LEVEL Cases",
     CurrentValue = true,
@@ -691,23 +703,6 @@ ToggleLevelCases = TabMisc:CreateToggle({
                 Image = 4483362458,
             })
             updateLevelCaseCooldowns()
-        end
-    end,
-})
-
-TabMisc:CreateToggle({
-    Name = "Auto Rejoin every hour",
-    CurrentValue = true,
-    Flag = "AutoRejoinHourly",
-    Callback = function(value)
-        State.autoRejoinHourly = value
-        if value then
-            Rayfield:Notify({
-                Title = "Auto Rejoin",
-                Content = "Will rejoin after 1 hour of playtime!",
-                Duration = 3,
-                Image = 4483362458,
-            })
         end
     end,
 })
@@ -731,32 +726,9 @@ ToggleSell = TabMisc:CreateToggle({
     end,
 })
 
--- Fonction pour rejoindre un serveur différent
-local function rejoinDifferentServer()
-    local currentJobId = game.JobId
-    local placeId = game.PlaceId
-    
-    local success, servers = pcall(function()
-        local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local response = game:HttpGet(url)
-        return HttpService:JSONDecode(response)
-    end)
-    
-    if success and servers and servers.data then
-        for _, server in ipairs(servers.data) do
-            if server.id ~= currentJobId and server.playing < server.maxPlayers then
-                pcall(function()
-                    TeleportService:TeleportToPlaceInstance(placeId, server.id, player)
-                end)
-                return true
-            end
-        end
-    end
-    
-    pcall(function()
-        TeleportService:Teleport(placeId, player)
-    end)
-    return false
+-- Fonction pour rejoin simple
+local function rejoinServer()
+    TeleportService:Teleport(game.PlaceId, player)
 end
 
 TabMisc:CreateSection("Emergency Stop")
@@ -822,19 +794,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
     -- Garder l'UI Battle et Main/Windows activés si nécessaire
     updateBattleUIState()
     
-    -- Vérifier si une heure de playtime s'est écoulée et rejoindre si activé
-    if State.autoRejoinHourly and getCurrentPlayTime() >= State.rejoinPlaytime then
-        Rayfield:Notify({
-            Title = "Hourly Rejoin",
-            Content = "1 hour of playtime reached, searching for a different server...",
-            Duration = 3,
-            Image = 4483362458,
-        })
-        task.wait(1)
-        rejoinDifferentServer()
-        return
-    end
-    
     -- Auto sell items (toutes les 2 minutes)
     if State.autoSell and currentTime - State.lastSellTime >= 120 then
         State.lastSellTime = currentTime
@@ -879,6 +838,19 @@ RunService.Heartbeat:Connect(function(deltaTime)
         local availableGift = getNextAvailableGift()
         if openItem(availableGift, true) then
             markGiftAsClaimed(availableGift)
+            
+            -- Si c'est le Gift9 et que le rejoin est activé, rejoindre le serveur
+            if availableGift == "Gift9" and State.autoRejoinGift9 then
+                Rayfield:Notify({
+                    Title = "Gift9 Claimed",
+                    Content = "Gift9 opened! Rejoining server...",
+                    Duration = 3,
+                    Image = 4483362458,
+                })
+                task.wait(2)
+                rejoinServer()
+                return
+            end
         end
     
     -- PRIORITÉ 6: Ouvrir cases sélectionnées (tant que Tickets >= 50)
