@@ -807,8 +807,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
         return
     end
     
-    -- Auto sell items (toutes les 5 minutes) - En parallèle, pas de priorité
-    if State.autoSell and currentTime - State.lastSellTime >= 300 then
+    -- Auto sell items (toutes les 2 minutes) - En parallèle, pas de priorité
+    if State.autoSell and currentTime - State.lastSellTime >= 120 then
         State.lastSellTime = currentTime
         sellUnlockedItems()
     end
