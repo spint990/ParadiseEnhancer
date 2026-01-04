@@ -105,7 +105,7 @@ local State = {
     autoRejoinWhenGift9Claimed = true,
     
     -- Configuration
-    selectedCase = "GINGERBREAD",
+    selectedCase = "GALAXYCASE",
     itemWhitelist = {
         -- Ajoutez ici les items à ne jamais vendre
         ["TitanHoloKato2014"] = true,
@@ -484,7 +484,7 @@ ToggleCases = TabCases:CreateToggle({
 DropdownCase = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = getCaseDropdownOptions(),
-    CurrentOption = {"Gingerbread Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
+    CurrentOption = {"Galaxy Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
@@ -853,7 +853,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
             markGiftAsClaimed(availableGift)
         end
     
-    -- PRIORITÉ 6: Ouvrir Gingerbread cases (tant que Tickets >= 50)
+    -- PRIORITÉ 6: Ouvrir Galaxy cases (tant que Tickets >= 50)
     elseif State.autoCase and currentTickets >= 50 then
         openItem(State.selectedCase, false, State.caseQuantity, State.wildMode)
     
