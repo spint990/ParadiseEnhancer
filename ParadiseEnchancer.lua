@@ -7,6 +7,7 @@
 --   • Complétion automatique des quêtes (Open/Play/Win)
 --   • Création automatique de battles avec bot
 --   • Auto ouverture des cases LEVEL
+--   • Auto rejoin sur un serveur différent
 -- ====================================
 
 -- ====================================
@@ -15,6 +16,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 -- ====================================
 -- RÉFÉRENCES JEU
@@ -102,7 +105,7 @@ local State = {
     autoQuestWin = true,
     autoOpenLevelCases = true,
     autoSell = true,
-    autoRejoinWhenGift9Claimed = true,
+    autoRejoinHourly = true,
     
     -- Configuration
     selectedCase = "GalaxyCase",
@@ -123,6 +126,9 @@ local State = {
     
     -- Cooldown global pour toutes les caisses/gifts
     isCaseReady = true,
+    
+    -- Rejoin horaire (en secondes de playtime)
+    rejoinPlaytime = 3600, -- 1 heure = 3600 secondes
 }
 
 -- ====================================
@@ -690,15 +696,15 @@ ToggleLevelCases = TabMisc:CreateToggle({
 })
 
 TabMisc:CreateToggle({
-    Name = "Rejoin when Gift 9 claimed",
+    Name = "Auto Rejoin every hour",
     CurrentValue = true,
-    Flag = "AutoRejoinWhenGift9Claimed",
+    Flag = "AutoRejoinHourly",
     Callback = function(value)
-        State.autoRejoinWhenGift9Claimed = value
+        State.autoRejoinHourly = value
         if value then
             Rayfield:Notify({
                 Title = "Auto Rejoin",
-                Content = "Will rejoin when Gift 9 is claimed!",
+                Content = "Will rejoin after 1 hour of playtime!",
                 Duration = 3,
                 Image = 4483362458,
             })
@@ -724,6 +730,34 @@ ToggleSell = TabMisc:CreateToggle({
         end
     end,
 })
+
+-- Fonction pour rejoindre un serveur différent
+local function rejoinDifferentServer()
+    local currentJobId = game.JobId
+    local placeId = game.PlaceId
+    
+    local success, servers = pcall(function()
+        local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+        local response = game:HttpGet(url)
+        return HttpService:JSONDecode(response)
+    end)
+    
+    if success and servers and servers.data then
+        for _, server in ipairs(servers.data) do
+            if server.id ~= currentJobId and server.playing < server.maxPlayers then
+                pcall(function()
+                    TeleportService:TeleportToPlaceInstance(placeId, server.id, player)
+                end)
+                return true
+            end
+        end
+    end
+    
+    pcall(function()
+        TeleportService:Teleport(placeId, player)
+    end)
+    return false
+end
 
 TabMisc:CreateSection("Emergency Stop")
 
@@ -781,12 +815,6 @@ TabMisc:CreateButton({
 -- ====================================
 -- BOUCLE PRINCIPALE
 -- ====================================
--- Nouveau système de priorité:
--- 1. Quest Play Battles (priorité max)
--- 2. Quest Win Battles (si pas de Play)
--- 3. Ouvrir Gingerbread cases (tant que Tickets >= 50)
--- 4. Quest Open Cases (quand Tickets < 50)
--- Les quêtes battles reprennent toujours la priorité dès qu'elles sont disponibles
 
 RunService.Heartbeat:Connect(function(deltaTime)
     local currentTime = tick()
@@ -794,27 +822,27 @@ RunService.Heartbeat:Connect(function(deltaTime)
     -- Garder l'UI Battle et Main/Windows activés si nécessaire
     updateBattleUIState()
     
-    -- Vérifier si Gift9 a été réclamé et rejoindre si activé
-    if State.autoRejoinWhenGift9Claimed and hasClaimedGift9() then
+    -- Vérifier si une heure de playtime s'est écoulée et rejoindre si activé
+    if State.autoRejoinHourly and getCurrentPlayTime() >= State.rejoinPlaytime then
         Rayfield:Notify({
-            Title = "Gift 9 Claimed",
-            Content = "Rejoining the game...",
+            Title = "Hourly Rejoin",
+            Content = "1 hour of playtime reached, searching for a different server...",
             Duration = 3,
             Image = 4483362458,
         })
         task.wait(1)
-        game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+        rejoinDifferentServer()
         return
     end
     
-    -- Auto sell items (toutes les 2 minutes) - En parallèle, pas de priorité
+    -- Auto sell items (toutes les 2 minutes)
     if State.autoSell and currentTime - State.lastSellTime >= 120 then
         State.lastSellTime = currentTime
         sellUnlockedItems()
     end
     
     -- ====================================
-    -- SYSTÈME DE PRIORITÉ PRINCIPAL (une seule action à la fois)
+    -- SYSTÈME DE PRIORITÉ PRINCIPAL
     -- ====================================
     local playData = getQuestData("Play")
     local winData = getQuestData("Win")
@@ -833,7 +861,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
             createBattleWithBot(string.upper(playData.subject))
         end
     
-    -- PRIORITÉ 3: Quest Win Battles (seulement si pas de Play quest)
+    -- PRIORITÉ 3: Quest Win Battles
     elseif State.autoQuestWin and winData and winData.remaining > 0 then
         if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
             State.lastBattleCreateTime = currentTime
@@ -846,14 +874,14 @@ RunService.Heartbeat:Connect(function(deltaTime)
             task.delay(1, updateLevelCaseCooldowns)
         end
     
-    -- PRIORITÉ 5: Auto claim gifts (seulement si un gift est disponible)
+    -- PRIORITÉ 5: Auto claim gifts
     elseif State.autoClaimGift and getNextAvailableGift() then
         local availableGift = getNextAvailableGift()
         if openItem(availableGift, true) then
             markGiftAsClaimed(availableGift)
         end
     
-    -- PRIORITÉ 6: Ouvrir Galaxy cases (tant que Tickets >= 50)
+    -- PRIORITÉ 6: Ouvrir cases sélectionnées (tant que Tickets >= 50)
     elseif State.autoCase and currentTickets >= 50 then
         openItem(State.selectedCase, false, State.caseQuantity, State.wildMode)
     
