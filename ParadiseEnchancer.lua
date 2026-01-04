@@ -46,7 +46,7 @@ startBattleRemote.OnClientEvent:Connect(function() end)
 -- CONSTANTES
 -- ====================================
 local CONFIG = {
-    BATTLE_COOLDOWN = 8,
+    BATTLE_COOLDOWN = 11,
 }
 
 local LEVEL_CASES = {
@@ -366,7 +366,7 @@ end
 -- Créer une battle avec un bot
 local function createBattleWithBot(mode)
     local battleId = createBattleRemote:InvokeServer({"PERCHANCE"}, 2, mode, false)
-    task.wait(1)
+    task.wait(1.5)
     addBotRemote:FireServer(battleId, player)
 end
 
