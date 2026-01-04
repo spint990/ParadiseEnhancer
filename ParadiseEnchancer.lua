@@ -105,7 +105,7 @@ local State = {
     autoRejoinWhenGift9Claimed = true,
     
     -- Configuration
-    selectedCase = "GALAXYCASE",
+    selectedCase = "GalaxyCase",
     itemWhitelist = {
         -- Ajoutez ici les items à ne jamais vendre
         ["TitanHoloKato2014"] = true,
@@ -484,7 +484,7 @@ ToggleCases = TabCases:CreateToggle({
 DropdownCase = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = getCaseDropdownOptions(),
-    CurrentOption = {"Galaxy Case " .. formatPrice(10 * State.caseQuantity, "Tickets")},
+    CurrentOption = {"Galaxy Case " .. formatPrice(State.caseQuantity * 10, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
