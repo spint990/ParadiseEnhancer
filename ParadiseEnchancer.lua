@@ -394,6 +394,7 @@ local function updateLevelCaseCooldowns()
     end
     
     return availableNow
+end
 
 
 -- Gérer l'état de l'UI Battle et garder Main/Windows activés selon les toggles
