@@ -361,7 +361,7 @@ end
 -- Créer une battle avec un bot
 local function createBattleWithBot(mode)
     local battleId = createBattleRemote:InvokeServer({"PERCHANCE"}, 2, mode, false)
-    task.wait(1.5)
+    task.wait(1)
     addBotRemote:FireServer(battleId, player)
 end
 
@@ -394,12 +394,11 @@ local function updateLevelCaseCooldowns()
     end
     
     return availableNow
-end
+
 
 -- Gérer l'état de l'UI Battle et garder Main/Windows activés selon les toggles
 local function updateBattleUIState()
     if State.autoQuestWin or State.autoQuestPlay then
-        playerGui.Battle.Enabled = true
         playerGui.Battle.BattleFrame.Visible = false
         playerGui.Main.Enabled = true
         playerGui.Windows.Enabled = true
