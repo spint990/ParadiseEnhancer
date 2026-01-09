@@ -44,7 +44,10 @@ startBattleRemote.OnClientEvent:Connect(function() end)
 -- CONSTANTES
 -- ====================================
 local CONFIG = {
-    BATTLE_COOLDOWN = 11,
+    BATTLE_COOLDOWN_MIN = 11,
+    BATTLE_COOLDOWN_MAX = 15,
+    CASE_COOLDOWN_MIN = 8,
+    CASE_COOLDOWN_MAX = 12,
 }
 
 local LEVEL_CASES = {
@@ -129,7 +132,7 @@ local State = {
 -- ====================================
 -- INTERFACE RAYFIELD
 -- ====================================
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Auto Case & Gifts Helper",
@@ -274,8 +277,9 @@ local function openItem(itemName, isGift, quantity, useWild)
         openCaseRemote:InvokeServer(itemName, quantity or 1, false, useWild or false)
     end
     
-    -- Remettre le flag à true après 6 secondes
-    task.delay(6, function()
+    -- Remettre le flag à true après un délai aléatoire entre 8 et 12 secondes
+    local randomDelay = math.random(CONFIG.CASE_COOLDOWN_MIN, CONFIG.CASE_COOLDOWN_MAX)
+    task.delay(randomDelay, function()
         State.isCaseReady = true
     end)
     
@@ -845,14 +849,16 @@ RunService.Heartbeat:Connect(function(deltaTime)
     
     -- PRIORITÉ 5: Quest Play Battles
     elseif State.autoQuestPlay and playData and playData.remaining > 0 then
-        if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
+        local randomCooldown = math.random(CONFIG.BATTLE_COOLDOWN_MIN, CONFIG.BATTLE_COOLDOWN_MAX)
+        if currentTime - State.lastBattleCreateTime >= randomCooldown then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot(string.upper(playData.subject))
         end
     
     -- PRIORITÉ 6: Quest Win Battles
     elseif State.autoQuestWin and winData and winData.remaining > 0 then
-        if currentTime - State.lastBattleCreateTime >= CONFIG.BATTLE_COOLDOWN then
+        local randomCooldown = math.random(CONFIG.BATTLE_COOLDOWN_MIN, CONFIG.BATTLE_COOLDOWN_MAX)
+        if currentTime - State.lastBattleCreateTime >= randomCooldown then
             State.lastBattleCreateTime = currentTime
             createBattleWithBot("CLASSIC")
         end
