@@ -44,8 +44,8 @@ startBattleRemote.OnClientEvent:Connect(function() end)
 -- CONSTANTES
 -- ====================================
 local CONFIG = {
-    BATTLE_COOLDOWN_MIN = 11,
-    BATTLE_COOLDOWN_MAX = 15,
+    BATTLE_COOLDOWN_MIN = 14,
+    BATTLE_COOLDOWN_MAX = 18,
     CASE_COOLDOWN_MIN = 8,
     CASE_COOLDOWN_MAX = 12,
 }
@@ -145,6 +145,7 @@ local Window = Rayfield:CreateWindow({
 -- ====================================
 -- FONCTIONS UTILITAIRES
 -- ====================================
+
 local function formatPrice(price, currency)
     currency = currency or "Cash"
     if price == 0 then return "Free" end
@@ -843,8 +844,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
     elseif State.autoCase and currentTickets >= 50 then
         openItem("GalaxyCase", false, 5, false)
     
-    -- PRIORITÉ 4: Ouvrir 5 cases LIGHT en Wild si balance > 170 000
-    elseif State.isCaseReady and currentBalance > 170000 then
+    -- PRIORITÉ 4: Ouvrir 5 cases LIGHT en Wild si balance > 140 000
+    elseif State.isCaseReady and currentBalance > 140000 then
         openItem("LIGHT", false, 5, true)
     
     -- PRIORITÉ 5: Quest Play Battles
