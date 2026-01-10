@@ -50,6 +50,12 @@ local LevelCaseIds = {
 
 local ItemWhitelist = {
     ["TitanHoloKato2014"] = true,
+    ["MAC10_NASA"] = true,
+    ["FlipKnife_Nebula"] = true,
+    ["Glock18_Franklins"] = true,
+    ["AWP_DragonLore"] = true,
+    ["M4A1S_FizzyPOP"] = true,
+    ["NinjasinPyjamasHoloKato2014"] = true,
 }
 
 --------------------------------------------------------------------------------
