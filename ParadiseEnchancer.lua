@@ -332,9 +332,9 @@ end
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
 
--- Retourne toujours "Exchange" sans vérifier les slots
+-- Lit simplement le texte du bouton pour savoir quoi envoyer
 local function getExchangeAction()
-    return "Exchange"
+    return PlayerGui.Windows.Exchange.Main.Content.Information.Action.ExchangeText.Text
 end
 
 --------------------------------------------------------------------------------
@@ -628,6 +628,8 @@ Toggles.AutoExchange = TabMisc:CreateToggle({
     end,
 })
 
+Labels.ExchangeStatus = TabMisc:CreateLabel("Exchange Status: Checking...")
+
 TabMisc:CreateSection("Emergency Stop")
 
 TabMisc:CreateButton({
@@ -747,6 +749,12 @@ RunService.Heartbeat:Connect(function()
     -- Priority 8: Selected case from dropdown - Auto Case Opening (dernière priorité)
     elseif State.AutoCase and State.SelectedCase then
         openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
+    end
+    
+    -- Mise à jour du statut d'échange
+    if State.AutoExchange and Labels.ExchangeStatus then
+        local actionType = getExchangeAction()
+        Labels.ExchangeStatus:Set("Exchange Status: " .. actionType)
     end
     
     updateQuestLabels()
