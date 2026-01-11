@@ -41,6 +41,7 @@ local Config = {
     SellInterval = 120,
     GalaxyTicketThreshold = 50,
     LightBalanceThreshold = 140000,
+    AutoGalaxyWhenTickets = true,
 }
 
 local LevelCaseIds = {
@@ -66,6 +67,7 @@ local State = {
     -- Feature toggles
     AutoClaimGift = true,
     AutoCase = true,
+    AutoGalaxyCase = true,
     AutoQuestOpen = true,
     AutoQuestPlay = true,
     AutoQuestWin = true,
@@ -422,12 +424,12 @@ local TabCases = Window:CreateTab("Cases", 4483362458)
 TabCases:CreateSection("Case Auto-Opener")
 
 Toggles.AutoCase = TabCases:CreateToggle({
-    Name = "Enable Auto Case Opening",
+    Name = "Enable Auto Case Opening (Selected Case)",
     CurrentValue = true,
     Flag = "AutoCaseOpen",
     Callback = function(value)
         State.AutoCase = value
-        if value then notify("Auto Case Opening", "Enabled!") end
+        if value then notify("Auto Case Opening", "Enabled for selected case!") end
     end,
 })
 
@@ -578,6 +580,16 @@ Toggles.LevelCases = TabMisc:CreateToggle({
     end,
 })
 
+Toggles.AutoGalaxyCase = TabMisc:CreateToggle({
+    Name = "Auto Open Galaxy Case (50+ Tickets)",
+    CurrentValue = true,
+    Flag = "AutoGalaxyCase",
+    Callback = function(value)
+        State.AutoGalaxyCase = value
+        if value then notify("Auto Galaxy Case", "Will open when 50+ tickets!") end
+    end,
+})
+
 TabMisc:CreateSection("Auto Sell")
 
 Toggles.AutoSell = TabMisc:CreateToggle({
@@ -673,8 +685,8 @@ RunService.Heartbeat:Connect(function()
             task.delay(1, updateLevelCaseCooldowns)
         end
     
-    -- Priority 3: Galaxy cases (tickets >= 50)
-    elseif State.AutoCase and getTickets() >= Config.GalaxyTicketThreshold then
+    -- Priority 3: Galaxy cases (tickets >= 50) - Automatique
+    elseif State.AutoGalaxyCase and getTickets() >= Config.GalaxyTicketThreshold then
         openCase("GalaxyCase", false, 5, false)
     
     -- Priority 4: Light cases in wild mode (balance > 140k)
@@ -703,6 +715,10 @@ RunService.Heartbeat:Connect(function()
     elseif State.AutoQuestOpen and getQuestData("Open") and getQuestData("Open").Remaining > 0 then
         local openData = getQuestData("Open")
         openCase(openData.Subject, false, math.min(5, openData.Remaining), false)
+    
+    -- Priority 8: Selected case from dropdown - Auto Case Opening (dernière priorité)
+    elseif State.AutoCase and State.SelectedCase then
+        openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
     end
     
     updateQuestLabels()
