@@ -371,15 +371,12 @@ local function refreshInventoryUI()
     local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
     local previous = currentWindow.Value
     currentWindow.Value = "Inventory"
-    task.wait(0.01)
+    task.wait(0.1)
     currentWindow.Value = previous
 end
 
 local function sellUnlockedItems()
     refreshInventoryUI()
-    task.wait(0.3)
-
-    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
 
     -- Exchange AVANT la vente (transfère les items vers exchange)
     if State.AutoExchange then
@@ -391,9 +388,11 @@ local function sellUnlockedItems()
             else
                 notify("Auto Exchange", "Items transferred to exchange!")
             end
-            task.wait(0.5)
+            refreshInventoryUI()
         end
     end
+
+    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
 
     -- Vendre tout sauf whitelist
     local toSell = {}
