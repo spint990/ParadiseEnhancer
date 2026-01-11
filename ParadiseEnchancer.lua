@@ -332,9 +332,10 @@ end
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
 
-local function canCompleteExchange(contents)
+-- Retourne l'action à faire : "Claim" si tous les slots sont complets, sinon "Exchange"
+local function getExchangeAction()
     local exchangeData = PlayerData:FindFirstChild("Exchange")
-    if not exchangeData then return false, "Exchange" end
+    if not exchangeData then return "Exchange" end
 
     local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
     local totalSlots = 0
@@ -343,37 +344,20 @@ local function canCompleteExchange(contents)
     for i, requirement in ipairs(requirementsFolder:GetChildren()) do
         if requirement:IsA("StringValue") then
             totalSlots = totalSlots + 1
-            local itemName = requirement.Value
             local amountNeeded = requirement:GetAttribute("Amount") or 0
             local slotFolder = exchangeData:FindFirstChild(tostring(i))
             local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
 
             if alreadyCollected >= amountNeeded then
                 completedSlots = completedSlots + 1
-            else
-                local itemCountInInventory = 0
-                for _, frame in pairs(contents:GetChildren()) do
-                    if frame:IsA("Frame") then
-                        local frameItemId = frame:GetAttribute("ItemId")
-                        local locked = frame:GetAttribute("locked")
-                        if frameItemId == itemName and not locked then
-                            itemCountInInventory = itemCountInInventory + 1
-                        end
-                    end
-                end
-
-                local totalAvailable = alreadyCollected + itemCountInInventory
-                if totalAvailable < amountNeeded then
-                    return false, "Exchange"
-                end
             end
         end
     end
 
-    if completedSlots == totalSlots then
-        return true, "Claim"
+    if totalSlots > 0 and completedSlots == totalSlots then
+        return "Claim"
     else
-        return true, "Exchange"
+        return "Exchange"
     end
 end
 
@@ -385,31 +369,23 @@ local function refreshInventoryUI()
     local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
     local previous = currentWindow.Value
     currentWindow.Value = "Inventory"
-    task.wait(0.01)
+    task.wait(0.1)
     currentWindow.Value = previous
 end
 
 local function sellUnlockedItems()
-    refreshInventoryUI()
-
-    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
-
     -- Exchange AVANT la vente
     if State.AutoExchange then
-        local canExchange, actionType = canCompleteExchange(contents)
-        if canExchange then
-            ExchangeEvent:FireServer(actionType)
-            if actionType == "Claim" then
-                notify("Auto Exchange", "Claimed reward!")
-            else
-                notify("Auto Exchange", "Items transferred to exchange!")
-            end
-            -- Refresh après exchange car les items ont changé
-            task.wait(0.5)
-            refreshInventoryUI()
-            contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
-        end
+        local actionType = getExchangeAction()
+        ExchangeEvent:FireServer(actionType)
+        task.wait(1)
     end
+
+    -- Refresh l'inventaire pour avoir les données à jour
+    refreshInventoryUI()
+    task.wait(0.2)
+    
+    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
 
     -- Vendre tout sauf whitelist
     local toSell = {}
@@ -456,15 +432,6 @@ local Window = Rayfield:CreateWindow({
     ToggleUIKeybind = "K",
 })
 
-local function notify(title, content)
-    Rayfield:Notify({
-        Title = title,
-        Content = content,
-        Duration = 3,
-        Image = 4483362458,
-    })
-end
-
 -- Build dropdown options
 local function buildCaseOptions()
     local options = {}
@@ -503,7 +470,6 @@ Toggles.AutoCase = TabCases:CreateToggle({
     Flag = "AutoCaseOpen",
     Callback = function(value)
         State.AutoCase = value
-        if value then notify("Auto Case Opening", "Enabled for selected case!") end
     end,
 })
 
@@ -543,7 +509,6 @@ TabCases:CreateToggle({
     Flag = "WildMode",
     Callback = function(value)
         State.WildMode = value
-        if value then notify("Wild Mode", "Enabled - Higher cost!") end
         CaseDropdown:Refresh(buildCaseOptions())
         updateDropdownSelection(CaseDropdown)
     end,
@@ -559,7 +524,6 @@ Toggles.QuestOpen = TabQuests:CreateToggle({
     Flag = "AutoQuestOpen",
     Callback = function(value)
         State.AutoQuestOpen = value
-        if value then notify("Auto Quest Open", "Enabled!") end
     end,
 })
 
@@ -569,7 +533,6 @@ Toggles.QuestPlay = TabQuests:CreateToggle({
     Flag = "AutoQuestPlay",
     Callback = function(value)
         State.AutoQuestPlay = value
-        if value then notify("Auto Quest Play", "Enabled!") end
         updateBattleUI()
     end,
 })
@@ -580,7 +543,6 @@ Toggles.QuestWin = TabQuests:CreateToggle({
     Flag = "AutoQuestWin",
     Callback = function(value)
         State.AutoQuestWin = value
-        if value then notify("Auto Quest Win", "Enabled!") end
         updateBattleUI()
     end,
 })
@@ -627,7 +589,6 @@ Toggles.ClaimGift = TabMisc:CreateToggle({
     Flag = "AutoClaimGift",
     Callback = function(value)
         State.AutoClaimGift = value
-        if value then notify("Auto Claim Gift", "Enabled!") end
     end,
 })
 
@@ -637,7 +598,6 @@ TabMisc:CreateToggle({
     Flag = "AutoRejoinGift9",
     Callback = function(value)
         State.AutoRejoinOnGift9 = value
-        if value then notify("Auto Rejoin Gift9", "Will rejoin when Gift9 is claimed!") end
     end,
 })
 
@@ -648,7 +608,6 @@ Toggles.LevelCases = TabMisc:CreateToggle({
     Callback = function(value)
         State.AutoLevelCases = value
         if value then
-            notify("Auto Level Cases", "Enabled!")
             updateLevelCaseCooldowns()
         end
     end,
@@ -660,7 +619,6 @@ Toggles.AutoGalaxyCase = TabMisc:CreateToggle({
     Flag = "AutoGalaxyCase",
     Callback = function(value)
         State.AutoGalaxyCase = value
-        if value then notify("Auto Galaxy Case", "Will open when 50+ tickets!") end
     end,
 })
 
@@ -670,7 +628,6 @@ Toggles.AutoLightCase = TabMisc:CreateToggle({
     Flag = "AutoLightCase",
     Callback = function(value)
         State.AutoLightCase = value
-        if value then notify("Auto Light Case", "Will open when balance > 140k!") end
     end,
 })
 
@@ -682,7 +639,6 @@ Toggles.AutoSell = TabMisc:CreateToggle({
     Flag = "AutoSell",
     Callback = function(value)
         State.AutoSell = value
-        if value then notify("Auto Sell", "Enabled!") end
     end,
 })
 
@@ -694,11 +650,6 @@ Toggles.AutoExchange = TabMisc:CreateToggle({
     Flag = "AutoExchange",
     Callback = function(value)
         State.AutoExchange = value
-        if value then
-            notify("Auto Exchange", "Will automatically exchange when you have all required items!")
-        else
-            notify("Auto Exchange", "Disabled - Manual exchange only!")
-        end
     end,
 })
 
@@ -731,7 +682,6 @@ TabMisc:CreateButton({
         
         -- Wait for case cooldown
         if not State.CaseReady then
-            notify("Please Wait", "Waiting for cooldown...")
             repeat task.wait(0.1) until State.CaseReady
         end
         
@@ -775,7 +725,6 @@ RunService.Heartbeat:Connect(function()
             markGiftClaimed(gift)
             
             if gift == "Gift9" and State.AutoRejoinOnGift9 then
-                notify("Gift9 Claimed", "Rejoining server...")
                 task.wait(2)
                 rejoinServer()
                 return
