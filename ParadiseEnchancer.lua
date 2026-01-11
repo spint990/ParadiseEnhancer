@@ -371,7 +371,7 @@ local function refreshInventoryUI()
     local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
     local previous = currentWindow.Value
     currentWindow.Value = "Inventory"
-    task.wait(0.1)
+    task.wait(0.3)
     currentWindow.Value = previous
 end
 
