@@ -38,7 +38,7 @@ StartBattleRemote.OnClientEvent:Connect(function() end)
 local Config = {
     BattleCooldown = { Min = 14, Max = 18 },
     CaseCooldown = { Min = 8, Max = 12 },
-    SellInterval = 20,
+    SellInterval = 120,
     GalaxyTicketThreshold = 50,
     LightBalanceThreshold = 140000,
     AutoGalaxyWhenTickets = true,
