@@ -68,6 +68,7 @@ local State = {
     AutoClaimGift = true,
     AutoCase = true,
     AutoGalaxyCase = true,
+    AutoLightCase = true,
     AutoQuestOpen = true,
     AutoQuestPlay = true,
     AutoQuestWin = true,
@@ -590,6 +591,16 @@ Toggles.AutoGalaxyCase = TabMisc:CreateToggle({
     end,
 })
 
+Toggles.AutoLightCase = TabMisc:CreateToggle({
+    Name = "Auto Open Light Case Wild (Balance > 140k)",
+    CurrentValue = true,
+    Flag = "AutoLightCase",
+    Callback = function(value)
+        State.AutoLightCase = value
+        if value then notify("Auto Light Case", "Will open when balance > 140k!") end
+    end,
+})
+
 TabMisc:CreateSection("Auto Sell")
 
 Toggles.AutoSell = TabMisc:CreateToggle({
@@ -614,6 +625,7 @@ TabMisc:CreateButton({
         State.AutoQuestPlay = false
         State.AutoQuestWin = false
         State.AutoLevelCases = false
+        State.AutoLightCase = false
         State.AutoSell = false
         
         -- Update UI toggles
@@ -623,6 +635,7 @@ TabMisc:CreateButton({
         Toggles.QuestPlay:Set(false)
         Toggles.QuestWin:Set(false)
         Toggles.LevelCases:Set(false)
+        Toggles.AutoLightCase:Set(false)
         Toggles.AutoSell:Set(false)
         
         -- Wait for case cooldown
@@ -690,7 +703,7 @@ RunService.Heartbeat:Connect(function()
         openCase("GalaxyCase", false, 5, false)
     
     -- Priority 4: Light cases in wild mode (balance > 140k)
-    elseif State.CaseReady and getBalance() > Config.LightBalanceThreshold then
+    elseif State.AutoLightCase and State.CaseReady and getBalance() > Config.LightBalanceThreshold then
         openCase("LIGHT", false, 5, true)
     
     -- Priority 5: Play quest battles
