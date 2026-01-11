@@ -42,6 +42,7 @@ local Config = {
     GalaxyTicketThreshold = 50,
     LightBalanceThreshold = 140000,
     AutoGalaxyWhenTickets = true,
+    ProtectExchangeItems = true,
 }
 
 local LevelCaseIds = {
@@ -51,12 +52,12 @@ local LevelCaseIds = {
 
 local ItemWhitelist = {
     ["TitanHoloKato2014"] = true,
-    ["MAC10_NASA"] = true,
-    ["FlipKnife_Nebula"] = true,
-    ["Glock18_Franklin"] = true,
-    ["AWP_DragonLore"] = true,
-    ["M4A1S_FizzyPOP"] = true,
-    ["NinjasinPyjamasHoloKato2014"] = true,
+    -- ["MAC10_NASA"] = true,
+    -- ["FlipKnife_Nebula"] = true,
+    -- ["Glock18_Franklin"] = true,
+    -- ["AWP_DragonLore"] = true,
+    -- ["M4A1S_FizzyPOP"] = true,
+    -- ["NinjasinPyjamasHoloKato2014"] = true,
     ["SkeletonKnife_PlanetaryDevastation"] = true,
     ["Karambit_Interstellar"] = true,
     ["ButterflyKnife_DemonHound"] = true,
@@ -78,17 +79,18 @@ local State = {
     AutoLevelCases = true,
     AutoSell = true,
     AutoRejoinOnGift9 = true,
-    
+    ProtectExchangeItems = true,
+
     -- Case settings
     SelectedCase = "GalaxyCase",
     CaseQuantity = 5,
     WildMode = false,
-    
+
     -- Timing
     LastBattleTime = 0,
     LastSellTime = 0,
     CaseReady = true,
-    
+
     -- Level case tracking
     NextLevelCaseTime = math.huge,
     NextLevelCaseId = nil,
@@ -339,28 +341,71 @@ end
 
 local function sellUnlockedItems()
     refreshInventoryUI()
-    
+
     local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
     local toSell = {}
-    
+    local protected = 0
+    local exchangeProtectionCount = {}
+
     for _, frame in pairs(contents:GetChildren()) do
         if frame:IsA("Frame") then
             local itemId = frame:GetAttribute("ItemId")
             local locked = frame:GetAttribute("locked")
-            
-            if itemId and not locked and not ItemWhitelist[itemId] then
-                table.insert(toSell, {
-                    Name = itemId,
-                    Wear = frame.Wear.Text,
-                    Stattrak = frame.Stattrak.Visible,
-                    Age = frame.Age.Value,
-                })
+
+            if itemId and not locked then
+                local isWhitelisted = ItemWhitelist[itemId]
+
+                if not isWhitelisted then
+                    local shouldProtect = false
+
+                    if State.ProtectExchangeItems then
+                        local exchangeData = PlayerData:FindFirstChild("Exchange")
+                        if exchangeData then
+                            local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
+
+                            for i, requirement in ipairs(requirementsFolder:GetChildren()) do
+                                if requirement:IsA("StringValue") and requirement.Value == itemId then
+                                    local amountNeeded = requirement:GetAttribute("Amount") or 0
+                                    local slotFolder = exchangeData:FindFirstChild(tostring(i))
+                                    local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
+
+                                    if alreadyCollected < amountNeeded then
+                                        if not exchangeProtectionCount[itemId] then
+                                            exchangeProtectionCount[itemId] = 0
+                                        end
+
+                                        local stillNeeded = amountNeeded - alreadyCollected
+                                        if exchangeProtectionCount[itemId] < stillNeeded then
+                                            exchangeProtectionCount[itemId] = exchangeProtectionCount[itemId] + 1
+                                            shouldProtect = true
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+
+                    if shouldProtect then
+                        protected = protected + 1
+                    else
+                        table.insert(toSell, {
+                            Name = itemId,
+                            Wear = frame.Wear.Text,
+                            Stattrak = frame.Stattrak.Visible,
+                            Age = frame.Age.Value,
+                        })
+                    end
+                end
             end
         end
     end
-    
+
     if #toSell > 0 then
         SellRemote:InvokeServer(toSell)
+        if protected > 0 then
+            notify("Auto Sell", string.format("Sold %d items, protected %d for exchange", #toSell, protected))
+        end
     end
 end
 
@@ -616,6 +661,20 @@ Toggles.AutoSell = TabMisc:CreateToggle({
     end,
 })
 
+Toggles.ProtectExchange = TabMisc:CreateToggle({
+    Name = "Protect Items Needed for Exchange",
+    CurrentValue = true,
+    Flag = "ProtectExchangeItems",
+    Callback = function(value)
+        State.ProtectExchangeItems = value
+        if value then
+            notify("Exchange Protection", "Items needed for exchange won't be sold!")
+        else
+            notify("Exchange Protection", "Disabled - All unlocked items will be sold!")
+        end
+    end,
+})
+
 TabMisc:CreateSection("Emergency Stop")
 
 TabMisc:CreateButton({
@@ -630,7 +689,7 @@ TabMisc:CreateButton({
         State.AutoLevelCases = false
         State.AutoLightCase = false
         State.AutoSell = false
-        
+
         -- Update UI toggles
         Toggles.ClaimGift:Set(false)
         Toggles.AutoCase:Set(false)
