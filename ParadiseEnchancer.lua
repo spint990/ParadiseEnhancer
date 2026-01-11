@@ -38,7 +38,7 @@ StartBattleRemote.OnClientEvent:Connect(function() end)
 local Config = {
     BattleCooldown = { Min = 14, Max = 18 },
     CaseCooldown = { Min = 8, Max = 12 },
-    SellInterval = 120,
+    SellInterval = 20,
     GalaxyTicketThreshold = 50,
     LightBalanceThreshold = 140000,
     AutoGalaxyWhenTickets = true,
@@ -332,10 +332,9 @@ end
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
 
--- Vérifie l'état des slots exchange et retourne l'action à faire
-local function getExchangeAction()
+local function canCompleteExchange(contents)
     local exchangeData = PlayerData:FindFirstChild("Exchange")
-    if not exchangeData then return nil end
+    if not exchangeData then return false, "Exchange" end
 
     local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
     local totalSlots = 0
@@ -344,22 +343,37 @@ local function getExchangeAction()
     for i, requirement in ipairs(requirementsFolder:GetChildren()) do
         if requirement:IsA("StringValue") then
             totalSlots = totalSlots + 1
+            local itemName = requirement.Value
             local amountNeeded = requirement:GetAttribute("Amount") or 0
             local slotFolder = exchangeData:FindFirstChild(tostring(i))
             local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
 
             if alreadyCollected >= amountNeeded then
                 completedSlots = completedSlots + 1
+            else
+                local itemCountInInventory = 0
+                for _, frame in pairs(contents:GetChildren()) do
+                    if frame:IsA("Frame") then
+                        local frameItemId = frame:GetAttribute("ItemId")
+                        local locked = frame:GetAttribute("locked")
+                        if frameItemId == itemName and not locked then
+                            itemCountInInventory = itemCountInInventory + 1
+                        end
+                    end
+                end
+
+                local totalAvailable = alreadyCollected + itemCountInInventory
+                if totalAvailable < amountNeeded then
+                    return false, "Exchange"
+                end
             end
         end
     end
 
-    if totalSlots == 0 then return nil end
-
     if completedSlots == totalSlots then
-        return "Claim"
+        return true, "Claim"
     else
-        return "Exchange"
+        return true, "Exchange"
     end
 end
 
@@ -371,28 +385,31 @@ local function refreshInventoryUI()
     local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
     local previous = currentWindow.Value
     currentWindow.Value = "Inventory"
-    task.wait(0.3)
+    task.wait(0.01)
     currentWindow.Value = previous
 end
 
 local function sellUnlockedItems()
     refreshInventoryUI()
 
-    -- Exchange AVANT la vente (transfère les items vers exchange)
+    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
+
+    -- Exchange AVANT la vente
     if State.AutoExchange then
-        local action = getExchangeAction()
-        if action then
-            ExchangeEvent:FireServer(action)
-            if action == "Claim" then
+        local canExchange, actionType = canCompleteExchange(contents)
+        if canExchange then
+            ExchangeEvent:FireServer(actionType)
+            if actionType == "Claim" then
                 notify("Auto Exchange", "Claimed reward!")
             else
                 notify("Auto Exchange", "Items transferred to exchange!")
             end
+            -- Refresh après exchange car les items ont changé
+            task.wait(0.5)
             refreshInventoryUI()
+            contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
         end
     end
-
-    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
 
     -- Vendre tout sauf whitelist
     local toSell = {}
