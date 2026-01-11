@@ -57,6 +57,9 @@ local ItemWhitelist = {
     ["AWP_DragonLore"] = true,
     ["M4A1S_FizzyPOP"] = true,
     ["NinjasinPyjamasHoloKato2014"] = true,
+    ["SkeletonKnife_PlanetaryDevastation"] = true,
+    ["Karambit_Interstellar"] = true,
+    ["ButterflyKnife_DemonHound"] = true,
 }
 
 --------------------------------------------------------------------------------
