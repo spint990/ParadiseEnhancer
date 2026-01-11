@@ -42,7 +42,6 @@ local Config = {
     GalaxyTicketThreshold = 50,
     LightBalanceThreshold = 140000,
     AutoGalaxyWhenTickets = true,
-    ProtectExchangeItems = true,
 }
 
 local LevelCaseIds = {
@@ -79,7 +78,6 @@ local State = {
     AutoLevelCases = true,
     AutoSell = true,
     AutoRejoinOnGift9 = true,
-    ProtectExchangeItems = true,
     AutoExchange = true,
 
     -- Case settings
@@ -334,42 +332,35 @@ end
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
 
-local function canCompleteExchange(contents)
+-- Vérifie l'état des slots exchange et retourne l'action à faire
+local function getExchangeAction()
     local exchangeData = PlayerData:FindFirstChild("Exchange")
-    if not exchangeData then return false end
+    if not exchangeData then return nil end
 
     local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
+    local totalSlots = 0
+    local completedSlots = 0
 
     for i, requirement in ipairs(requirementsFolder:GetChildren()) do
         if requirement:IsA("StringValue") then
-            local itemName = requirement.Value
+            totalSlots = totalSlots + 1
             local amountNeeded = requirement:GetAttribute("Amount") or 0
             local slotFolder = exchangeData:FindFirstChild(tostring(i))
             local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
 
             if alreadyCollected >= amountNeeded then
-                return true
-            end
-
-            local itemCountInInventory = 0
-            for _, frame in pairs(contents:GetChildren()) do
-                if frame:IsA("Frame") then
-                    local frameItemId = frame:GetAttribute("ItemId")
-                    local locked = frame:GetAttribute("locked")
-                    if frameItemId == itemName and not locked then
-                        itemCountInInventory = itemCountInInventory + 1
-                    end
-                end
-            end
-
-            local totalAvailable = alreadyCollected + itemCountInInventory
-            if totalAvailable < amountNeeded then
-                return false
+                completedSlots = completedSlots + 1
             end
         end
     end
 
-    return true
+    if totalSlots == 0 then return nil end
+
+    if completedSlots == totalSlots then
+        return "Claim"
+    else
+        return "Exchange"
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -386,77 +377,44 @@ end
 
 local function sellUnlockedItems()
     refreshInventoryUI()
+    task.wait(0.3)
 
     local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
-    local toSell = {}
-    local protected = 0
-    local exchangeProtectionCount = {}
 
+    -- Exchange AVANT la vente (transfère les items vers exchange)
+    if State.AutoExchange then
+        local action = getExchangeAction()
+        if action then
+            ExchangeEvent:FireServer(action)
+            if action == "Claim" then
+                notify("Auto Exchange", "Claimed reward!")
+            else
+                notify("Auto Exchange", "Items transferred to exchange!")
+            end
+            task.wait(0.5)
+        end
+    end
+
+    -- Vendre tout sauf whitelist
+    local toSell = {}
     for _, frame in pairs(contents:GetChildren()) do
         if frame:IsA("Frame") then
             local itemId = frame:GetAttribute("ItemId")
             local locked = frame:GetAttribute("locked")
 
-            if itemId and not locked then
-                local isWhitelisted = ItemWhitelist[itemId]
-
-                if not isWhitelisted then
-                    local shouldProtect = false
-
-                    if State.ProtectExchangeItems then
-                        local exchangeData = PlayerData:FindFirstChild("Exchange")
-                        if exchangeData then
-                            local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
-
-                            for i, requirement in ipairs(requirementsFolder:GetChildren()) do
-                                if requirement:IsA("StringValue") and requirement.Value == itemId then
-                                    local amountNeeded = requirement:GetAttribute("Amount") or 0
-                                    local slotFolder = exchangeData:FindFirstChild(tostring(i))
-                                    local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
-
-                                    if alreadyCollected < amountNeeded then
-                                        if not exchangeProtectionCount[itemId] then
-                                            exchangeProtectionCount[itemId] = 0
-                                        end
-
-                                        local stillNeeded = amountNeeded - alreadyCollected
-                                        if exchangeProtectionCount[itemId] < stillNeeded then
-                                            exchangeProtectionCount[itemId] = exchangeProtectionCount[itemId] + 1
-                                            shouldProtect = true
-                                        end
-                                    end
-                                    break
-                                end
-                            end
-                        end
-                    end
-
-                    if shouldProtect then
-                        protected = protected + 1
-                    else
-                        table.insert(toSell, {
-                            Name = itemId,
-                            Wear = frame.Wear.Text,
-                            Stattrak = frame.Stattrak.Visible,
-                            Age = frame.Age.Value,
-                        })
-                    end
-                end
+            if itemId and not locked and not ItemWhitelist[itemId] then
+                table.insert(toSell, {
+                    Name = itemId,
+                    Wear = frame.Wear.Text,
+                    Stattrak = frame.Stattrak.Visible,
+                    Age = frame.Age.Value,
+                })
             end
         end
     end
 
     if #toSell > 0 then
         SellRemote:InvokeServer(toSell)
-        if protected > 0 then
-            notify("Auto Sell", string.format("Sold %d items, protected %d for exchange", #toSell, protected))
-        end
-    end
-
-    if State.AutoExchange and canCompleteExchange(contents) then
-        ExchangeEvent:FireServer("Exchange")
-        notify("Auto Exchange", "Exchange completed!")
-        task.wait(2)
     end
 end
 
@@ -709,20 +667,6 @@ Toggles.AutoSell = TabMisc:CreateToggle({
     Callback = function(value)
         State.AutoSell = value
         if value then notify("Auto Sell", "Enabled!") end
-    end,
-})
-
-Toggles.ProtectExchange = TabMisc:CreateToggle({
-    Name = "Protect Items Needed for Exchange",
-    CurrentValue = true,
-    Flag = "ProtectExchangeItems",
-    Callback = function(value)
-        State.ProtectExchangeItems = value
-        if value then
-            notify("Exchange Protection", "Items needed for exchange won't be sold!")
-        else
-            notify("Exchange Protection", "Disabled - All unlocked items will be sold!")
-        end
     end,
 })
 
