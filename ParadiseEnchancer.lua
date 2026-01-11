@@ -80,6 +80,7 @@ local State = {
     AutoSell = true,
     AutoRejoinOnGift9 = true,
     ProtectExchangeItems = true,
+    AutoExchange = true,
 
     -- Case settings
     SelectedCase = "GalaxyCase",
@@ -328,6 +329,50 @@ local function updateLevelCaseCooldowns()
 end
 
 --------------------------------------------------------------------------------
+-- Exchange System
+--------------------------------------------------------------------------------
+
+local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
+
+local function canCompleteExchange(contents)
+    local exchangeData = PlayerData:FindFirstChild("Exchange")
+    if not exchangeData then return false end
+
+    local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
+
+    for i, requirement in ipairs(requirementsFolder:GetChildren()) do
+        if requirement:IsA("StringValue") then
+            local itemName = requirement.Value
+            local amountNeeded = requirement:GetAttribute("Amount") or 0
+            local slotFolder = exchangeData:FindFirstChild(tostring(i))
+            local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
+
+            if alreadyCollected >= amountNeeded then
+                return true
+            end
+
+            local itemCountInInventory = 0
+            for _, frame in pairs(contents:GetChildren()) do
+                if frame:IsA("Frame") then
+                    local frameItemId = frame:GetAttribute("ItemId")
+                    local locked = frame:GetAttribute("locked")
+                    if frameItemId == itemName and not locked then
+                        itemCountInInventory = itemCountInInventory + 1
+                    end
+                end
+            end
+
+            local totalAvailable = alreadyCollected + itemCountInInventory
+            if totalAvailable < amountNeeded then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+--------------------------------------------------------------------------------
 -- Inventory / Selling
 --------------------------------------------------------------------------------
 
@@ -406,6 +451,12 @@ local function sellUnlockedItems()
         if protected > 0 then
             notify("Auto Sell", string.format("Sold %d items, protected %d for exchange", #toSell, protected))
         end
+    end
+
+    if State.AutoExchange and canCompleteExchange(contents) then
+        ExchangeEvent:FireServer("Exchange")
+        notify("Auto Exchange", "Exchange completed!")
+        task.wait(2)
     end
 end
 
@@ -675,6 +726,22 @@ Toggles.ProtectExchange = TabMisc:CreateToggle({
     end,
 })
 
+TabMisc:CreateSection("Auto Exchange")
+
+Toggles.AutoExchange = TabMisc:CreateToggle({
+    Name = "Auto Exchange When Possible",
+    CurrentValue = true,
+    Flag = "AutoExchange",
+    Callback = function(value)
+        State.AutoExchange = value
+        if value then
+            notify("Auto Exchange", "Will automatically exchange when you have all required items!")
+        else
+            notify("Auto Exchange", "Disabled - Manual exchange only!")
+        end
+    end,
+})
+
 TabMisc:CreateSection("Emergency Stop")
 
 TabMisc:CreateButton({
@@ -689,6 +756,7 @@ TabMisc:CreateButton({
         State.AutoLevelCases = false
         State.AutoLightCase = false
         State.AutoSell = false
+        State.AutoExchange = false
 
         -- Update UI toggles
         Toggles.ClaimGift:Set(false)
@@ -699,6 +767,7 @@ TabMisc:CreateButton({
         Toggles.LevelCases:Set(false)
         Toggles.AutoLightCase:Set(false)
         Toggles.AutoSell:Set(false)
+        Toggles.AutoExchange:Set(false)
         
         -- Wait for case cooldown
         if not State.CaseReady then
@@ -730,15 +799,15 @@ TabMisc:CreateButton({
 
 RunService.Heartbeat:Connect(function()
     local now = tick()
-    
+
     updateBattleUI()
-    
+
     -- Auto sell (every 2 minutes)
     if State.AutoSell and now - State.LastSellTime >= Config.SellInterval then
         State.LastSellTime = now
         sellUnlockedItems()
     end
-    
+
     -- Priority 1: Gifts
     if State.AutoClaimGift then
         local gift = getNextClaimableGift()
