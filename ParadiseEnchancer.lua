@@ -332,33 +332,9 @@ end
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
 
--- Retourne l'action à faire : "Claim" si tous les slots sont complets, sinon "Exchange"
+-- Retourne toujours "Exchange" sans vérifier les slots
 local function getExchangeAction()
-    local exchangeData = PlayerData:FindFirstChild("Exchange")
-    if not exchangeData then return "Exchange" end
-
-    local requirementsFolder = PlayerGui.Windows.Exchange.Items.Requirements
-    local totalSlots = 0
-    local completedSlots = 0
-
-    for i, requirement in ipairs(requirementsFolder:GetChildren()) do
-        if requirement:IsA("StringValue") then
-            totalSlots = totalSlots + 1
-            local amountNeeded = requirement:GetAttribute("Amount") or 0
-            local slotFolder = exchangeData:FindFirstChild(tostring(i))
-            local alreadyCollected = slotFolder and #slotFolder:GetChildren() or 0
-
-            if alreadyCollected >= amountNeeded then
-                completedSlots = completedSlots + 1
-            end
-        end
-    end
-
-    if totalSlots > 0 and completedSlots == totalSlots then
-        return "Claim"
-    else
-        return "Exchange"
-    end
+    return "Exchange"
 end
 
 --------------------------------------------------------------------------------
@@ -378,12 +354,11 @@ local function sellUnlockedItems()
     if State.AutoExchange then
         local actionType = getExchangeAction()
         ExchangeEvent:FireServer(actionType)
-        task.wait(1)
+        task.wait(0.1)
     end
 
     -- Refresh l'inventaire pour avoir les données à jour
     refreshInventoryUI()
-    task.wait(0.2)
     
     local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
 
