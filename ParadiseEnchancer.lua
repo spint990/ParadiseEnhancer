@@ -355,6 +355,11 @@ local function sellUnlockedItems()
         local actionType = getExchangeAction()
         ExchangeEvent:FireServer(actionType)
         task.wait(0.1)
+        
+        -- Claim Galaxy category
+        local args = {"Galaxy"}
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClaimCategoryIndex"):FireServer(unpack(args))
+        task.wait(0.1)
     end
 
     -- Refresh l'inventaire pour avoir les données à jour
@@ -767,3 +772,6 @@ end)
 if State.AutoLevelCases then
     updateLevelCaseCooldowns()
 end
+
+
+
