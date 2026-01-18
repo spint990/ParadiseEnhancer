@@ -402,59 +402,6 @@ local function rejoinServer()
     end
 end
 
-local function joinSpecificPlayer(targetUserId)
-    local HttpService = game:GetService("HttpService")
-    
-    Rayfield:Notify({
-        Title = "Searching...",
-        Content = "Looking for player " .. targetUserId,
-        Duration = 3,
-        Image = 4483362458,
-    })
-    
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(
-            "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-        ))
-    end)
-    
-    if not success then
-        Rayfield:Notify({
-            Title = "Error",
-            Content = "Failed to fetch servers",
-            Duration = 5,
-            Image = 4483362458,
-        })
-        return false
-    end
-    
-    if success and result.data then
-        for _, server in pairs(result.data) do
-            for _, playerId in pairs(server.playerIds or {}) do
-                if playerId == targetUserId then
-                    Rayfield:Notify({
-                        Title = "Player Found!",
-                        Content = "Joining player's server...",
-                        Duration = 3,
-                        Image = 4483362458,
-                    })
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, Player)
-                    return true
-                end
-            end
-        end
-    end
-    
-    -- Si le joueur n'est pas trouvé
-    Rayfield:Notify({
-        Title = "Player Not Found",
-        Content = "Player is offline or in a private server",
-        Duration = 5,
-        Image = 4483362458,
-    })
-    return false
-end
-
 --------------------------------------------------------------------------------
 -- UI Setup (Rayfield)
 --------------------------------------------------------------------------------
@@ -500,13 +447,6 @@ local CaseDropdown
 -- Cases Tab
 local TabCases = Window:CreateTab("Cases", 4483362458)
 TabCases:CreateSection("Case Auto-Opener")
-
-TabCases:CreateButton({
-    Name = "Join Player (8063800571)",
-    Callback = function()
-        joinSpecificPlayer(8063800571)
-    end,
-})
 
 Toggles.AutoCase = TabCases:CreateToggle({
     Name = "Enable Auto Case Opening (Selected Case)",
