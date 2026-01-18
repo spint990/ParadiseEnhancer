@@ -81,7 +81,7 @@ local State = {
     AutoExchange = true,
 
     -- Case settings
-    SelectedCase = "GalaxyCase",
+    SelectedCase = "StarGazingCase",
     CaseQuantity = 5,
     WildMode = false,
 
@@ -456,7 +456,7 @@ Toggles.AutoCase = TabCases:CreateToggle({
 CaseDropdown = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = buildCaseOptions(),
-    CurrentOption = {"Galaxy Case " .. formatPrice(State.CaseQuantity * 10, "Tickets")},
+    CurrentOption = {"Star Gazing Case" .. formatPrice(State.CaseQuantity * 10, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
@@ -594,7 +594,7 @@ Toggles.LevelCases = TabMisc:CreateToggle({
 })
 
 Toggles.AutoGalaxyCase = TabMisc:CreateToggle({
-    Name = "Auto Open Galaxy Case (50+ Tickets)",
+    Name = "Auto Open Star Gazing Case (50+ Tickets)",
     CurrentValue = true,
     Flag = "AutoGalaxyCase",
     Callback = function(value)
@@ -722,7 +722,7 @@ RunService.Heartbeat:Connect(function()
     
     -- Priority 3: Galaxy cases (tickets >= 50) - Automatique
     elseif State.AutoGalaxyCase and getTickets() >= Config.GalaxyTicketThreshold then
-        openCase("GalaxyCase", false, 5, false)
+        openCase("StarGazingCase", false, 5, false)
     
     -- Priority 4: Light cases in wild mode (balance > 140k)
     elseif State.AutoLightCase and State.CaseReady and getBalance() > Config.LightBalanceThreshold then
