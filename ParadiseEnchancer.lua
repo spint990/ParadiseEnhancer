@@ -393,7 +393,38 @@ end
 --------------------------------------------------------------------------------
 
 local function rejoinServer()
-    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+    if #Players:GetPlayers() <= 1 then
+        Player:Kick("\nRejoining...")
+        task.wait()
+        TeleportService:Teleport(game.PlaceId, Player)
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+    end
+end
+
+local function joinSpecificPlayer(targetUserId)
+    local HttpService = game:GetService("HttpService")
+    
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+        ))
+    end)
+    
+    if success and result.data then
+        for _, server in pairs(result.data) do
+            for _, playerId in pairs(server.playerIds or {}) do
+                if playerId == targetUserId then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, Player)
+                    return true
+                end
+            end
+        end
+    end
+    
+    -- Si le joueur n'est pas trouvé, rejoindre normalement
+    rejoinServer()
+    return false
 end
 
 --------------------------------------------------------------------------------
@@ -443,9 +474,9 @@ local TabCases = Window:CreateTab("Cases", 4483362458)
 TabCases:CreateSection("Case Auto-Opener")
 
 TabCases:CreateButton({
-    Name = "Rejoin Current Server",
+    Name = "Join Player (8063800571)",
     Callback = function()
-        rejoinServer()
+        joinSpecificPlayer(8063800571)
     end,
 })
 
