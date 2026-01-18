@@ -442,6 +442,13 @@ local CaseDropdown
 local TabCases = Window:CreateTab("Cases", 4483362458)
 TabCases:CreateSection("Case Auto-Opener")
 
+TabCases:CreateButton({
+    Name = "Rejoin Current Server",
+    Callback = function()
+        rejoinServer()
+    end,
+})
+
 Toggles.AutoCase = TabCases:CreateToggle({
     Name = "Enable Auto Case Opening (Selected Case)",
     CurrentValue = true,
