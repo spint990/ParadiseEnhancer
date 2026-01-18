@@ -76,7 +76,6 @@ local State = {
     AutoLevelCases = true,
     AutoSell = true,
     AutoRejoinOnGift9 = true,
-    AutoExchange = true,
 
     -- Case settings
     SelectedCase = "StarGazingCase",
@@ -325,14 +324,51 @@ local function updateLevelCaseCooldowns()
 end
 
 --------------------------------------------------------------------------------
--- Exchange System
+-- Exchange & Index System (Dynamic - Update Proof)
 --------------------------------------------------------------------------------
 
 local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
+local ClaimCategoryIndex = Remotes:WaitForChild("ClaimCategoryIndex")
 
--- Lit simplement le texte du bouton pour savoir quoi envoyer
-local function getExchangeAction()
-    return PlayerGui.Windows.Exchange.Main.Content.Information.Action.ExchangeText.Text
+-- Récupère dynamiquement les catégories depuis l'UI du jeu
+local function getIndexCategories()
+    local categories = {}
+    local indexWindow = PlayerGui:FindFirstChild("Windows")
+        and PlayerGui.Windows:FindFirstChild("Index")
+    
+    if indexWindow then
+        local categoriesFolder = indexWindow:FindFirstChild("Categories")
+        if categoriesFolder then
+            local children = categoriesFolder:GetChildren()
+            -- Trier par nom numérique (1, 2, 3...)
+            table.sort(children, function(a, b)
+                return (tonumber(a.Name) or 0) < (tonumber(b.Name) or 0)
+            end)
+            for _, child in ipairs(children) do
+                if child:IsA("StringValue") and child.Value and child.Value ~= "" then
+                    table.insert(categories, child.Value)
+                end
+            end
+        end
+    end
+    
+    return categories
+end
+
+-- Essaye de déposer (Exchange) puis réclamer (Claim) sur l'exchange (une seule fois)
+local function tryExchange()
+    ExchangeEvent:FireServer("Exchange")  -- Dépose les items requis
+    task.wait(2)
+    ExchangeEvent:FireServer("Claim")     -- Réclame la récompense si possible
+end
+
+-- Claim toutes les catégories d'index (une seule tentative par catégorie)
+local function claimAllIndexCategories()
+    local categories = getIndexCategories()
+    for _, category in ipairs(categories) do
+        ClaimCategoryIndex:FireServer(category)
+        task.wait(2)
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -348,17 +384,11 @@ local function refreshInventoryUI()
 end
 
 local function sellUnlockedItems()
-    -- Exchange AVANT la vente
-    if State.AutoExchange then
-        local actionType = getExchangeAction()
-        ExchangeEvent:FireServer(actionType)
-        task.wait(0.1)
-        
-        -- Claim Galaxy category
-        local args = {"Galaxy"}
-        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClaimCategoryIndex"):FireServer(unpack(args))
-        task.wait(0.1)
-    end
+    -- Exchange & Index AVANT la vente (toujours actif)
+    tryExchange()
+    task.wait(0.1)
+    claimAllIndexCategories()
+    task.wait(0.1)
 
     -- Refresh l'inventaire pour avoir les données à jour
     refreshInventoryUI()
@@ -626,69 +656,6 @@ Toggles.AutoSell = TabMisc:CreateToggle({
     end,
 })
 
-TabMisc:CreateSection("Auto Exchange")
-
-Toggles.AutoExchange = TabMisc:CreateToggle({
-    Name = "Auto Exchange When Possible",
-    CurrentValue = true,
-    Flag = "AutoExchange",
-    Callback = function(value)
-        State.AutoExchange = value
-    end,
-})
-
-Labels.ExchangeStatus = TabMisc:CreateLabel("Exchange Status: Checking...")
-
-TabMisc:CreateSection("Emergency Stop")
-
-TabMisc:CreateButton({
-    Name = "STOP & RESET UI",
-    Callback = function()
-        -- Disable all automation
-        State.AutoClaimGift = false
-        State.AutoCase = false
-        State.AutoQuestOpen = false
-        State.AutoQuestPlay = false
-        State.AutoQuestWin = false
-        State.AutoLevelCases = false
-        State.AutoLightCase = false
-        State.AutoSell = false
-        State.AutoExchange = false
-
-        -- Update UI toggles
-        Toggles.ClaimGift:Set(false)
-        Toggles.AutoCase:Set(false)
-        Toggles.QuestOpen:Set(false)
-        Toggles.QuestPlay:Set(false)
-        Toggles.QuestWin:Set(false)
-        Toggles.LevelCases:Set(false)
-        Toggles.AutoLightCase:Set(false)
-        Toggles.AutoSell:Set(false)
-        Toggles.AutoExchange:Set(false)
-        
-        -- Wait for case cooldown
-        if not State.CaseReady then
-            repeat task.wait(0.1) until State.CaseReady
-        end
-        
-        task.wait(1)
-        
-        -- Reset game UI
-        PlayerGui.Battle.Enabled = false
-        PlayerGui.Battle.BattleFrame.Visible = true
-        PlayerGui.Main.Enabled = true
-        PlayerGui.Windows.Enabled = true
-        workspace.CurrentCamera.FieldOfView = 70
-        
-        Rayfield:Notify({
-            Title = "Emergency Stop",
-            Content = "All automations stopped & UI reset!",
-            Duration = 5,
-            Image = 4483362458,
-        })
-    end,
-})
-
 --------------------------------------------------------------------------------
 -- Main Loop
 --------------------------------------------------------------------------------
@@ -760,12 +727,6 @@ RunService.Heartbeat:Connect(function()
         openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
     end
     
-    -- Mise à jour du statut d'échange
-    if State.AutoExchange and Labels.ExchangeStatus then
-        local actionType = getExchangeAction()
-        Labels.ExchangeStatus:Set("Exchange Status: " .. actionType)
-    end
-    
     updateQuestLabels()
 end)
 
@@ -777,5 +738,5 @@ if State.AutoLevelCases then
     updateLevelCaseCooldowns()
 end
 
-
-
+-- Claim initial de toutes les catégories au démarrage
+claimAllIndexCategories()
