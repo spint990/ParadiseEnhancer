@@ -40,7 +40,7 @@ local Config = {
     CaseCooldown = { Min = 8, Max = 12 },
     SellInterval = 120,
     GalaxyTicketThreshold = 50,
-    LightBalanceThreshold = 140000,
+    LightBalanceThreshold = 100000,
     AutoGalaxyWhenTickets = true,
 }
 
@@ -50,16 +50,14 @@ local LevelCaseIds = {
 }
 
 local ItemWhitelist = {
-    ["TitanHoloKato2014"] = true,
-    -- ["MAC10_NASA"] = true,
-    -- ["FlipKnife_Nebula"] = true,
-    -- ["Glock18_Franklin"] = true,
-    -- ["AWP_DragonLore"] = true,
-    -- ["M4A1S_FizzyPOP"] = true,
-    -- ["NinjasinPyjamasHoloKato2014"] = true,
+    ["DesertEagle_PlasmaStorm"] = true,
+    ["ButterflyKnife_Wrapped"] = true,
+    ["iBUYPOWERHoloKato2014"] = true,
     ["SkeletonKnife_PlanetaryDevastation"] = true,
     ["Karambit_Interstellar"] = true,
     ["ButterflyKnife_DemonHound"] = true,
+    ["AWP_IonCharge"] = true,
+    
 }
 
 --------------------------------------------------------------------------------
@@ -726,7 +724,7 @@ RunService.Heartbeat:Connect(function()
     
     -- Priority 4: Light cases in wild mode (balance > 140k)
     elseif State.AutoLightCase and State.CaseReady and getBalance() > Config.LightBalanceThreshold then
-        openCase("LIGHT", false, 5, true)
+        openCase("KATOWICE_CHALLENGERS", false, 5, true)
     
     -- Priority 5: Play quest battles
     elseif State.AutoQuestPlay and getQuestData("Play") and getQuestData("Play").Remaining > 0 then
