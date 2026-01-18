@@ -393,7 +393,7 @@ end
 --------------------------------------------------------------------------------
 
 local function rejoinServer()
-    TeleportService:Teleport(game.PlaceId, Player)
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
 end
 
 --------------------------------------------------------------------------------
