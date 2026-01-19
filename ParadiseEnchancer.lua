@@ -164,28 +164,8 @@ do
     end)
 end
 
--- Cache quests by type to avoid repeated GetChildren() calls
-Cache.Quests = {}
-do
-    local function updateQuestCache(quest)
-        Cache.Quests[quest.Value] = quest
-    end
-    
-    local function removeFromCache(quest)
-        if Cache.Quests[quest.Value] == quest then
-            Cache.Quests[quest.Value] = nil
-        end
-    end
-    
-    -- Initial population
-    for _, quest in ipairs(Quests:GetChildren()) do
-        updateQuestCache(quest)
-    end
-    
-    -- Listen for new quests (when old quest is completed and replaced)
-    Quests.ChildAdded:Connect(updateQuestCache)
-    Quests.ChildRemoved:Connect(removeFromCache)
-end
+-- Note: Quests are NOT cached because they change when completed
+-- We read directly from Quests folder to detect new quests
 
 --------------------------------------------------------------------------------
 -- UTILITY
@@ -332,15 +312,33 @@ end
 
 local QuestSystem = {}
 
+-- Find quest by type directly from the Quests folder (no caching)
+-- This ensures we always get the current quest, even after completion
+function QuestSystem.findQuest(questType)
+    for _, quest in ipairs(Quests:GetChildren()) do
+        if quest.Value == questType then
+            return quest
+        end
+    end
+    return nil
+end
+
 function QuestSystem.getData(questType)
-    local quest = Cache.Quests[questType]
+    local quest = QuestSystem.findQuest(questType)
     if not quest then return nil end
-    local progress = quest.Progress.Value
-    local requirement = quest.Requirement.Value
+    
+    local progressObj = quest:FindFirstChild("Progress")
+    local requirementObj = quest:FindFirstChild("Requirement")
+    local subjectObj = quest:FindFirstChild("Subject")
+    
+    if not progressObj or not requirementObj then return nil end
+    
+    local progress = progressObj.Value
+    local requirement = requirementObj.Value
     return {
         Progress = progress,
         Requirement = requirement,
-        Subject = quest.Subject.Value,
+        Subject = subjectObj and subjectObj.Value or "",
         Remaining = requirement - progress,
     }
 end
