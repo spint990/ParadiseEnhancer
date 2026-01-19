@@ -1,111 +1,155 @@
+--[[
+    Paradise Enhancer v2.0
+    Optimized for multi-instance execution
+]]
 
--- Services
+--------------------------------------------------------------------------------
+-- SERVICES
+--------------------------------------------------------------------------------
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
--- Player references
+--------------------------------------------------------------------------------
+-- REFERENCES
+--------------------------------------------------------------------------------
+
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local PlayerData = Player:WaitForChild("PlayerData")
 local Currencies = PlayerData:WaitForChild("Currencies")
+local Inventory = PlayerData:WaitForChild("Inventory")
+local Quests = PlayerData:WaitForChild("Quests")
+local ClaimedGifts = Player:WaitForChild("ClaimedGifts")
+local Playtime = Player:WaitForChild("Playtime")
 
--- Game modules
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local CasesModule = require(Modules:WaitForChild("Cases"))
+local ItemsModule = require(Modules:WaitForChild("Items"))
 
--- Remotes
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local OpenCaseRemote = Remotes:WaitForChild("OpenCase")
-local CreateBattleRemote = Remotes:WaitForChild("CreateBattle")
-local CheckCooldownRemote = Remotes:WaitForChild("CheckCooldown")
-local AddBotRemote = Remotes:WaitForChild("AddBot")
-local StartBattleRemote = Remotes:WaitForChild("StartBattle")
-local SellRemote = Remotes:WaitForChild("Sell")
+local Remote = {
+    OpenCase = Remotes:WaitForChild("OpenCase"),
+    CreateBattle = Remotes:WaitForChild("CreateBattle"),
+    CheckCooldown = Remotes:WaitForChild("CheckCooldown"),
+    AddBot = Remotes:WaitForChild("AddBot"),
+    StartBattle = Remotes:WaitForChild("StartBattle"),
+    Sell = Remotes:WaitForChild("Sell"),
+    Exchange = Remotes:WaitForChild("ExchangeEvent"),
+    ClaimIndex = Remotes:WaitForChild("ClaimCategoryIndex"),
+}
 
--- Folders
 local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
-local WildPrices = ReplicatedStorage:WaitForChild("Misc"):WaitForChild("WildPrices")
+local WildPrices = ReplicatedStorage.Misc.WildPrices
 
--- Suppress battle start events
-StartBattleRemote.OnClientEvent:Connect(function() end)
+local UI = {
+    Main = PlayerGui:WaitForChild("Main"),
+    Windows = PlayerGui:WaitForChild("Windows"),
+    OpenAnimation = PlayerGui:WaitForChild("OpenAnimation"),
+    Battle = PlayerGui:WaitForChild("Battle"),
+}
+UI.Inventory = UI.Windows.Inventory
+UI.Index = UI.Windows.Index
+
+Remote.StartBattle.OnClientEvent:Connect(function() end)
 
 --------------------------------------------------------------------------------
--- Configuration
+-- CONFIGURATION
 --------------------------------------------------------------------------------
 
 local Config = {
-    BattleCooldown = { Min = 14, Max = 18 },
-    CaseCooldown = { Min = 8, Max = 12 },
-    SellInterval = 120,
-    GalaxyTicketThreshold = 50,
-    LightBalanceThreshold = 100000,
-    AutoGalaxyWhenTickets = true,
-}
-
-local LevelCaseIds = {
-    "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
-    "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120"
-}
-
-local ItemWhitelist = {
-    ["DesertEagle_PlasmaStorm"] = true,
-    ["ButterflyKnife_Wrapped"] = true,
-    ["iBUYPOWERHoloKato2014"] = true,
-    ["SkeletonKnife_PlanetaryDevastation"] = true,
-    ["Karambit_Interstellar"] = true,
-    ["ButterflyKnife_DemonHound"] = true,
-    ["AWP_IonCharge"] = true,
-    
+    Cooldown = {
+        BattleMin = 14,
+        BattleMax = 18,
+        CaseMin = 8,
+        CaseMax = 12,
+        SellInterval = 120,
+    },
+    Threshold = {
+        GalaxyTickets = 50,
+        KatowiceBalance = 100000,
+    },
+    LevelCases = {
+        "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
+        "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120",
+    },
+    Whitelist = {
+        ["DesertEagle_PlasmaStorm"] = true,
+        ["ButterflyKnife_Wrapped"] = true,
+        ["iBUYPOWERHoloKato2014"] = true,
+        ["SkeletonKnife_PlanetaryDevastation"] = true,
+        ["Karambit_Interstellar"] = true,
+        ["ButterflyKnife_DemonHound"] = true,
+        ["AWP_IonCharge"] = true,
+    },
 }
 
 --------------------------------------------------------------------------------
--- State
+-- STATE
 --------------------------------------------------------------------------------
 
 local State = {
-    -- Feature toggles
-    AutoClaimGift = true,
-    AutoCase = true,
-    AutoGalaxyCase = true,
-    AutoLightCase = true,
-    AutoQuestOpen = true,
-    AutoQuestPlay = true,
-    AutoQuestWin = true,
-    AutoLevelCases = true,
-    AutoSell = true,
-    AutoRejoinOnGift9 = true,
-
-    -- Case settings
-    SelectedCase = "StarGazingCase",
-    CaseQuantity = 5,
-    WildMode = false,
-
-    -- Timing
-    LastBattleTime = 0,
-    LastSellTime = 0,
-    CaseReady = true,
-
-    -- Level case tracking
-    NextLevelCaseTime = math.huge,
+    Features = {
+        ClaimGift = true,
+        OpenCase = true,
+        GalaxyCase = true,
+        KatowiceWild = true,
+        QuestOpen = true,
+        QuestPlay = true,
+        QuestWin = true,
+        LevelCases = true,
+        AutoSell = true,
+        RejoinOnGift9 = true,
+    },
+    Case = {
+        Selected = "StarGazingCase",
+        Quantity = 5,
+        WildMode = false,
+    },
+    Time = {
+        LastBattle = 0,
+        LastSell = 0,
+        NextLevelCase = math.huge,
+    },
+    Ready = {
+        Case = true,
+    },
     NextLevelCaseId = nil,
 }
 
 --------------------------------------------------------------------------------
--- Available Cases (built from game module)
+-- CACHE
 --------------------------------------------------------------------------------
 
-local AvailableCases = {}
+local Cache = {}
 
-local function isLevelCase(caseId)
-    return caseId:match("^LEVELS?%d+$") ~= nil
+Cache.GiftPlaytimes = {}
+for i = 1, 9 do
+    local giftId = "Gift" .. i
+    Cache.GiftPlaytimes[giftId] = GiftsFolder[giftId].Value
 end
 
-local function buildAvailableCases()
+Cache.IndexCategories = {}
+do
+    local children = UI.Index.Categories:GetChildren()
+    table.sort(children, function(a, b)
+        return (tonumber(a.Name) or 0) < (tonumber(b.Name) or 0)
+    end)
+    for _, child in ipairs(children) do
+        if child:IsA("StringValue") and child.Value ~= "" then
+            table.insert(Cache.IndexCategories, child.Value)
+        end
+    end
+end
+
+Cache.Cases = {}
+do
     for caseId, data in pairs(CasesModule) do
-        if not data.AdminOnly and not isLevelCase(caseId) then
-            table.insert(AvailableCases, {
+        local isLevelCase = caseId:match("^LEVELS?%d+$")
+        if not data.AdminOnly and not isLevelCase then
+            table.insert(Cache.Cases, {
                 Id = caseId,
                 Name = data.Name or caseId,
                 Price = data.Price or 0,
@@ -113,155 +157,169 @@ local function buildAvailableCases()
             })
         end
     end
-    
-    table.sort(AvailableCases, function(a, b)
+    table.sort(Cache.Cases, function(a, b)
         if a.Currency == "Tickets" and b.Currency ~= "Tickets" then return true end
         if a.Currency ~= "Tickets" and b.Currency == "Tickets" then return false end
         return a.Price < b.Price
     end)
 end
 
-buildAvailableCases()
+-- Cache quests by type to avoid repeated GetChildren() calls
+Cache.Quests = {}
+do
+    local function updateQuestCache(quest)
+        Cache.Quests[quest.Value] = quest
+    end
+    
+    local function removeFromCache(quest)
+        if Cache.Quests[quest.Value] == quest then
+            Cache.Quests[quest.Value] = nil
+        end
+    end
+    
+    -- Initial population
+    for _, quest in ipairs(Quests:GetChildren()) do
+        updateQuestCache(quest)
+    end
+    
+    -- Listen for new quests (when old quest is completed and replaced)
+    Quests.ChildAdded:Connect(updateQuestCache)
+    Quests.ChildRemoved:Connect(removeFromCache)
+end
 
 --------------------------------------------------------------------------------
--- Currency Helpers
+-- UTILITY
 --------------------------------------------------------------------------------
 
-local function getBalance()
+local Util = {}
+
+function Util.getBalance()
     return Currencies.Balance.Value
 end
 
-local function getTickets()
+function Util.getTickets()
     return Currencies.Tickets.Value
 end
 
-local function getExperience()
+function Util.getExperience()
     return Currencies.Experience.Value
 end
 
-local function getPlaytime()
-    return Player.Playtime.Value
+function Util.getPlaytime()
+    return Playtime.Value
 end
 
---------------------------------------------------------------------------------
--- Price Helpers
---------------------------------------------------------------------------------
-
-local function getCasePrice(caseId)
-    local data = CasesModule[caseId]
-    return data and data.Price or 0
+function Util.getCasePrice(caseId)
+    return CasesModule[caseId] and CasesModule[caseId].Price or 0
 end
 
-local function getWildPrice(caseId)
-    local priceValue = WildPrices:FindFirstChild(caseId)
-    return priceValue and priceValue.Value or getCasePrice(caseId)
+function Util.getWildPrice(caseId)
+    local priceObj = WildPrices:FindFirstChild(caseId)
+    return priceObj and priceObj.Value or Util.getCasePrice(caseId)
 end
 
-local function formatPrice(price, currency)
-    if price == 0 then return "Free" end
-    
-    local formatted = price % 1 == 0 and tostring(price) or string.format("%.2f", price)
-    return currency == "Tickets" and formatted .. " GINGERBREAD" or "$" .. formatted
-end
-
-local function canAfford(caseId, quantity, useWild)
+function Util.canAfford(caseId, quantity, useWild)
     if caseId:match("^Gift%d?$") then return true end
-    
     local data = CasesModule[caseId]
     if not data then return false end
-    
-    local price = useWild and getWildPrice(caseId) or data.Price or 0
+    local price = useWild and Util.getWildPrice(caseId) or data.Price or 0
     if price <= 0 then return true end
-    
     local totalCost = price * (quantity or 1)
-    local funds = data.Currency == "Tickets" and getTickets() or getBalance()
-    return funds >= totalCost
+    local currency = data.Currency == "Tickets" and Util.getTickets() or Util.getBalance()
+    return currency >= totalCost
+end
+
+function Util.randomCooldown(min, max)
+    return math.random(min, max)
+end
+
+function Util.formatPrice(price, currency)
+    if price == 0 then return "Free" end
+    local formatted = price % 1 == 0 and tostring(price) or string.format("%.2f", price)
+    return currency == "Tickets" and (formatted .. " GINGERBREAD") or ("$" .. formatted)
 end
 
 --------------------------------------------------------------------------------
--- UI Animation Suppression
+-- UI SUPPRESSION
 --------------------------------------------------------------------------------
 
-local function suppressOpenAnimation()
+local UISuppress = {}
+local suppressConnection
+
+function UISuppress.startSuppression()
     local camera = workspace.CurrentCamera
-    local openAnim = PlayerGui.OpenAnimation
-    local main = PlayerGui.Main
-    local windows = PlayerGui.Windows
+    local openScreen = UI.OpenAnimation.CaseOpeningScreen
+    local endPreview = UI.OpenAnimation.EndPreview
+    local mainUI = UI.Main
+    local windowsUI = UI.Windows
     
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        if State.CaseReady then
-            connection:Disconnect()
+    suppressConnection = RunService.RenderStepped:Connect(function()
+        if State.Ready.Case then
+            suppressConnection:Disconnect()
+            suppressConnection = nil
             return
         end
-        
-        camera.FieldOfView = 70
-        openAnim.CaseOpeningScreen.Visible = false
-        openAnim.EndPreview.Visible = false
-        main.Enabled = true
-        windows.Enabled = true
+        if camera.FieldOfView ~= 70 then camera.FieldOfView = 70 end
+        if openScreen.Visible then openScreen.Visible = false end
+        if endPreview.Visible then endPreview.Visible = false end
+        if not mainUI.Enabled then mainUI.Enabled = true end
+        if not windowsUI.Enabled then windowsUI.Enabled = true end
     end)
 end
 
-local function updateBattleUI()
-    if State.AutoQuestWin or State.AutoQuestPlay then
-        PlayerGui.Battle.BattleFrame.Visible = false
-        PlayerGui.Main.Enabled = true
-        PlayerGui.Windows.Enabled = true
-    end
+function UISuppress.hideBattle()
+    UI.Battle.BattleFrame.Visible = false
+    UI.Main.Enabled = true
+    UI.Windows.Enabled = true
 end
 
 --------------------------------------------------------------------------------
--- Case Opening
+-- CASE SYSTEM
 --------------------------------------------------------------------------------
 
-local function openCase(caseId, isGift, quantity, useWild)
+local CaseSystem = {}
+
+function CaseSystem.open(caseId, isGift, quantity, useWild)
     local checkId = isGift and "Gift" or caseId
-    if not State.CaseReady or not canAfford(checkId, quantity, useWild) then
-        return false
-    end
+    if not State.Ready.Case then return false end
+    if not Util.canAfford(checkId, quantity, useWild) then return false end
     
-    State.CaseReady = false
-    suppressOpenAnimation()
+    State.Ready.Case = false
+    UISuppress.startSuppression()
     
     if isGift then
-        OpenCaseRemote:InvokeServer(caseId, -1, false)
+        Remote.OpenCase:InvokeServer(caseId, -1, false)
     else
-        OpenCaseRemote:InvokeServer(caseId, quantity or 1, false, useWild or false)
+        Remote.OpenCase:InvokeServer(caseId, quantity or 1, false, useWild or false)
     end
     
-    local delay = math.random(Config.CaseCooldown.Min, Config.CaseCooldown.Max)
-    task.delay(delay, function()
-        State.CaseReady = true
+    task.delay(Util.randomCooldown(Config.Cooldown.CaseMin, Config.Cooldown.CaseMax), function()
+        State.Ready.Case = true
     end)
-    
     return true
 end
 
 --------------------------------------------------------------------------------
--- Gift System
+-- GIFT SYSTEM
 --------------------------------------------------------------------------------
 
-local function getGiftRequiredPlaytime(giftId)
-    local value = GiftsFolder:FindFirstChild(giftId)
-    return value and value.Value or math.huge
+local GiftSystem = {}
+
+function GiftSystem.isClaimed(giftId)
+    return ClaimedGifts[giftId].Value
 end
 
-local function isGiftClaimed(giftId)
-    return Player.ClaimedGifts[giftId].Value
-end
-
-local function markGiftClaimed(giftId)
+function GiftSystem.markClaimed(giftId)
     task.wait(1)
-    Player.ClaimedGifts[giftId].Value = true
-    PlayerGui.Windows.Rewards.ClaimedGifts[giftId].Value = true
+    ClaimedGifts[giftId].Value = true
+    UI.Windows.Rewards.ClaimedGifts[giftId].Value = true
 end
 
-local function getNextClaimableGift()
-    local currentPlaytime = getPlaytime()
+function GiftSystem.getNextClaimable()
+    local currentPlaytime = Util.getPlaytime()
     for i = 1, 9 do
         local giftId = "Gift" .. i
-        if not isGiftClaimed(giftId) and currentPlaytime >= getGiftRequiredPlaytime(giftId) then
+        if not GiftSystem.isClaimed(giftId) and currentPlaytime >= Cache.GiftPlaytimes[giftId] then
             return giftId
         end
     end
@@ -269,54 +327,65 @@ local function getNextClaimableGift()
 end
 
 --------------------------------------------------------------------------------
--- Quest System
+-- QUEST SYSTEM
 --------------------------------------------------------------------------------
 
-local function getQuestData(questType)
-    local quests = PlayerData.Quests
-    if not quests then return nil end
-    
-    for _, quest in ipairs(quests:GetChildren()) do
-        if quest.Value == questType then
-            local progress = quest.Progress.Value
-            local requirement = quest.Requirement.Value
-            return {
-                Progress = progress,
-                Requirement = requirement,
-                Subject = quest.Subject.Value,
-                Remaining = requirement - progress,
-            }
-        end
-    end
-    return nil
+local QuestSystem = {}
+
+function QuestSystem.getData(questType)
+    local quest = Cache.Quests[questType]
+    if not quest then return nil end
+    local progress = quest.Progress.Value
+    local requirement = quest.Requirement.Value
+    return {
+        Progress = progress,
+        Requirement = requirement,
+        Subject = quest.Subject.Value,
+        Remaining = requirement - progress,
+    }
+end
+
+function QuestSystem.getOpen()
+    return QuestSystem.getData("Open")
+end
+
+function QuestSystem.getPlay()
+    return QuestSystem.getData("Play")
+end
+
+function QuestSystem.getWin()
+    return QuestSystem.getData("Win")
 end
 
 --------------------------------------------------------------------------------
--- Battle System
+-- BATTLE SYSTEM
 --------------------------------------------------------------------------------
 
-local function createBotBattle(mode)
-    local battleId = CreateBattleRemote:InvokeServer({"PERCHANCE"}, 2, mode, false)
+local BattleSystem = {}
+
+function BattleSystem.createBotBattle(mode)
+    local battleId = Remote.CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
     task.wait(1)
-    AddBotRemote:FireServer(battleId, Player)
+    Remote.AddBot:FireServer(battleId, Player)
 end
 
 --------------------------------------------------------------------------------
--- Level Case System
+-- LEVEL CASE SYSTEM
 --------------------------------------------------------------------------------
 
-local function updateLevelCaseCooldowns()
-    State.NextLevelCaseTime = math.huge
+local LevelSystem = {}
+
+function LevelSystem.updateCooldowns()
+    State.Time.NextLevelCase = math.huge
     State.NextLevelCaseId = nil
+    local playerXP = Util.getExperience()
     
-    local playerXP = getExperience()
-    
-    for _, caseId in ipairs(LevelCaseIds) do
+    for _, caseId in ipairs(Config.LevelCases) do
         local data = CasesModule[caseId]
         if data and playerXP >= (data.XPRequirement or 0) then
-            local cooldownEnd = CheckCooldownRemote:InvokeServer(caseId)
-            if cooldownEnd < State.NextLevelCaseTime then
-                State.NextLevelCaseTime = cooldownEnd
+            local cooldownEnd = Remote.CheckCooldown:InvokeServer(caseId)
+            if cooldownEnd < State.Time.NextLevelCase then
+                State.Time.NextLevelCase = cooldownEnd
                 State.NextLevelCaseId = caseId
             end
         end
@@ -324,85 +393,48 @@ local function updateLevelCaseCooldowns()
 end
 
 --------------------------------------------------------------------------------
--- Exchange & Index System (Dynamic - Update Proof)
+-- ECONOMY SYSTEM
 --------------------------------------------------------------------------------
 
-local ExchangeEvent = Remotes:WaitForChild("ExchangeEvent")
-local ClaimCategoryIndex = Remotes:WaitForChild("ClaimCategoryIndex")
+local EconomySystem = {}
 
--- Récupère dynamiquement les catégories depuis l'UI du jeu
-local function getIndexCategories()
-    local categories = {}
-    local indexWindow = PlayerGui:FindFirstChild("Windows")
-        and PlayerGui.Windows:FindFirstChild("Index")
-    
-    if indexWindow then
-        local categoriesFolder = indexWindow:FindFirstChild("Categories")
-        if categoriesFolder then
-            local children = categoriesFolder:GetChildren()
-            -- Trier par nom numérique (1, 2, 3...)
-            table.sort(children, function(a, b)
-                return (tonumber(a.Name) or 0) < (tonumber(b.Name) or 0)
-            end)
-            for _, child in ipairs(children) do
-                if child:IsA("StringValue") and child.Value and child.Value ~= "" then
-                    table.insert(categories, child.Value)
-                end
-            end
-        end
-    end
-    
-    return categories
-end
-
--- Essaye de déposer (Exchange) puis réclamer (Claim) sur l'exchange (une seule fois)
-local function tryExchange()
-    ExchangeEvent:FireServer("Exchange")  -- Dépose les items requis
+function EconomySystem.exchange()
+    Remote.Exchange:FireServer("Exchange")
     task.wait(2)
-    ExchangeEvent:FireServer("Claim")     -- Réclame la récompense si possible
+    Remote.Exchange:FireServer("Claim")
 end
 
--- Claim toutes les catégories d'index (une seule tentative par catégorie)
-local function claimAllIndexCategories()
-    local categories = getIndexCategories()
-    for _, category in ipairs(categories) do
-        ClaimCategoryIndex:FireServer(category)
+function EconomySystem.claimAllIndex()
+    for _, category in ipairs(Cache.IndexCategories) do
+        Remote.ClaimIndex:FireServer(category)
         task.wait(2)
     end
 end
 
---------------------------------------------------------------------------------
--- Inventory / Selling
---------------------------------------------------------------------------------
-
-local function refreshInventoryUI()
-    local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
+function EconomySystem.refreshInventoryUI()
+    local currentWindow = PlayerGui.CurrentWindow
     local previous = currentWindow.Value
     currentWindow.Value = "Inventory"
     task.wait(0.1)
     currentWindow.Value = previous
 end
 
-local function sellUnlockedItems()
-    -- Exchange & Index AVANT la vente (toujours actif)
-    tryExchange()
+function EconomySystem.sellUnlocked()
+    EconomySystem.exchange()
     task.wait(0.1)
-    claimAllIndexCategories()
+    EconomySystem.claimAllIndex()
     task.wait(0.1)
-
-    -- Refresh l'inventaire pour avoir les données à jour
-    refreshInventoryUI()
+    EconomySystem.refreshInventoryUI()
+    task.wait(0.5)
     
-    local contents = PlayerGui.Windows.Inventory.InventoryFrame.Contents
-
-    -- Vendre tout sauf whitelist
+    local contents = UI.Inventory.InventoryFrame.Contents
     local toSell = {}
+    
     for _, frame in pairs(contents:GetChildren()) do
         if frame:IsA("Frame") then
             local itemId = frame:GetAttribute("ItemId")
             local locked = frame:GetAttribute("locked")
-
-            if itemId and not locked and not ItemWhitelist[itemId] then
+            if itemId and not locked and not Config.Whitelist[itemId] then
                 table.insert(toSell, {
                     Name = itemId,
                     Wear = frame.Wear.Text,
@@ -412,17 +444,19 @@ local function sellUnlockedItems()
             end
         end
     end
-
+    
     if #toSell > 0 then
-        SellRemote:InvokeServer(toSell)
+        Remote.Sell:InvokeServer(toSell)
     end
 end
 
 --------------------------------------------------------------------------------
--- Server Rejoin
+-- SERVER SYSTEM
 --------------------------------------------------------------------------------
 
-local function rejoinServer()
+local ServerSystem = {}
+
+function ServerSystem.rejoin()
     if #Players:GetPlayers() <= 1 then
         Player:Kick("\nRejoining...")
         task.wait()
@@ -433,71 +467,68 @@ local function rejoinServer()
 end
 
 --------------------------------------------------------------------------------
--- UI Setup (Rayfield)
+-- UI (Rayfield)
 --------------------------------------------------------------------------------
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Auto Case & Gifts Helper",
+    Name = "Paradise Enhancer v2.0",
     LoadingTitle = "Paradise Enhancer",
     LoadingSubtitle = "by Backlyne",
     Theme = "Default",
     ToggleUIKeybind = "K",
 })
 
--- Build dropdown options
+local CaseDropdown
+local Labels = {}
+
 local function buildCaseOptions()
     local options = {}
-    for _, caseData in ipairs(AvailableCases) do
-        local unitPrice = State.WildMode and getWildPrice(caseData.Id) or caseData.Price
-        local totalPrice = unitPrice * State.CaseQuantity
-        local wildTag = State.WildMode and " (Wild)" or ""
-        table.insert(options, caseData.Name .. wildTag .. " " .. formatPrice(totalPrice, caseData.Currency))
+    for _, caseData in ipairs(Cache.Cases) do
+        local unitPrice = State.Case.WildMode and Util.getWildPrice(caseData.Id) or caseData.Price
+        local totalPrice = unitPrice * State.Case.Quantity
+        local wildTag = State.Case.WildMode and " (Wild)" or ""
+        table.insert(options, caseData.Name .. wildTag .. " " .. Util.formatPrice(totalPrice, caseData.Currency))
     end
     return options
 end
 
-local function updateDropdownSelection(dropdown)
-    for _, caseData in ipairs(AvailableCases) do
-        if caseData.Id == State.SelectedCase then
-            local unitPrice = State.WildMode and getWildPrice(caseData.Id) or caseData.Price
-            local wildTag = State.WildMode and " (Wild)" or ""
-            dropdown:Set(caseData.Name .. wildTag .. " " .. formatPrice(unitPrice * State.CaseQuantity, caseData.Currency))
+local function updateDropdownSelection()
+    for _, caseData in ipairs(Cache.Cases) do
+        if caseData.Id == State.Case.Selected then
+            local unitPrice = State.Case.WildMode and Util.getWildPrice(caseData.Id) or caseData.Price
+            local wildTag = State.Case.WildMode and " (Wild)" or ""
+            CaseDropdown:Set(caseData.Name .. wildTag .. " " .. Util.formatPrice(unitPrice * State.Case.Quantity, caseData.Currency))
             break
         end
     end
 end
 
--- UI element references
-local Toggles = {}
-local Labels = {}
-local CaseDropdown
-
--- Cases Tab
+-- Tab: Cases
 local TabCases = Window:CreateTab("Cases", 4483362458)
-TabCases:CreateSection("Case Auto-Opener")
+TabCases:CreateSection("Auto Case Opener")
 
-Toggles.AutoCase = TabCases:CreateToggle({
-    Name = "Enable Auto Case Opening (Selected Case)",
-    CurrentValue = true,
+TabCases:CreateToggle({
+    Name = "Enable Auto Case Opening",
+    CurrentValue = State.Features.OpenCase,
     Flag = "AutoCaseOpen",
     Callback = function(value)
-        State.AutoCase = value
+        State.Features.OpenCase = value
     end,
 })
 
 CaseDropdown = TabCases:CreateDropdown({
     Name = "Case to Open",
     Options = buildCaseOptions(),
-    CurrentOption = {"Star Gazing Case" .. formatPrice(State.CaseQuantity * 10, "Tickets")},
+    CurrentOption = {"Star Gazing Case " .. Util.formatPrice(State.Case.Quantity * 10, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(option)
         local optionName = type(option) == "table" and option[1] or option
-        for _, caseData in ipairs(AvailableCases) do
+        for _, caseData in ipairs(Cache.Cases) do
             if optionName:find(caseData.Name, 1, true) == 1 then
-                State.SelectedCase = caseData.Id
+                State.Case.Selected = caseData.Id
                 break
             end
         end
@@ -505,238 +536,284 @@ CaseDropdown = TabCases:CreateDropdown({
 })
 
 TabCases:CreateDropdown({
-    Name = "Number of Cases to Open at Once",
+    Name = "Quantity",
     Options = {"1", "2", "3", "4", "5"},
     CurrentOption = {"5"},
     MultipleOptions = false,
     Flag = "CaseQuantity",
     Callback = function(option)
-        State.CaseQuantity = tonumber(type(option) == "table" and option[1] or option) or 1
+        State.Case.Quantity = tonumber(type(option) == "table" and option[1] or option) or 1
         CaseDropdown:Refresh(buildCaseOptions())
-        updateDropdownSelection(CaseDropdown)
+        updateDropdownSelection()
     end,
 })
 
 TabCases:CreateToggle({
-    Name = "Wild Mode (Higher Cost)",
-    CurrentValue = false,
+    Name = "Wild Mode",
+    CurrentValue = State.Case.WildMode,
     Flag = "WildMode",
     Callback = function(value)
-        State.WildMode = value
+        State.Case.WildMode = value
         CaseDropdown:Refresh(buildCaseOptions())
-        updateDropdownSelection(CaseDropdown)
+        updateDropdownSelection()
     end,
 })
 
--- Quests Tab
-local TabQuests = Window:CreateTab("Quest", 4483362458)
-TabQuests:CreateSection("Quest Auto-Completion")
+-- Tab: Quests
+local TabQuests = Window:CreateTab("Quests", 4483362458)
+TabQuests:CreateSection("Auto Quest Completion")
 
-Toggles.QuestOpen = TabQuests:CreateToggle({
-    Name = "Auto Quest Open Cases",
-    CurrentValue = true,
+TabQuests:CreateToggle({
+    Name = "Auto Quest: Open Cases",
+    CurrentValue = State.Features.QuestOpen,
     Flag = "AutoQuestOpen",
     Callback = function(value)
-        State.AutoQuestOpen = value
+        State.Features.QuestOpen = value
     end,
 })
 
-Toggles.QuestPlay = TabQuests:CreateToggle({
-    Name = "Auto Quest Play Battles",
-    CurrentValue = true,
+TabQuests:CreateToggle({
+    Name = "Auto Quest: Play Battles",
+    CurrentValue = State.Features.QuestPlay,
     Flag = "AutoQuestPlay",
     Callback = function(value)
-        State.AutoQuestPlay = value
-        updateBattleUI()
+        State.Features.QuestPlay = value
+        if value then UISuppress.hideBattle() end
     end,
 })
 
-Toggles.QuestWin = TabQuests:CreateToggle({
-    Name = "Auto Quest Win Battles",
-    CurrentValue = true,
+TabQuests:CreateToggle({
+    Name = "Auto Quest: Win Battles",
+    CurrentValue = State.Features.QuestWin,
     Flag = "AutoQuestWin",
     Callback = function(value)
-        State.AutoQuestWin = value
-        updateBattleUI()
+        State.Features.QuestWin = value
+        if value then UISuppress.hideBattle() end
     end,
 })
 
-TabQuests:CreateSection("Status")
-Labels.OpenCases = TabQuests:CreateLabel("Open Cases: -")
-Labels.PlayBattles = TabQuests:CreateLabel("Play Battles: -")
-Labels.WinBattles = TabQuests:CreateLabel("Win Battles: -")
+TabQuests:CreateSection("Quest Status")
+Labels.Open = TabQuests:CreateLabel("Open Cases: -")
+Labels.Play = TabQuests:CreateLabel("Play Battles: -")
+Labels.Win = TabQuests:CreateLabel("Win Battles: -")
 
-local function updateQuestLabels()
-    local openData = getQuestData("Open")
-    local playData = getQuestData("Play")
-    local winData = getQuestData("Win")
-    
-    if openData then
-        local cost = openData.Remaining * getCasePrice(openData.Subject)
-        Labels.OpenCases:Set(string.format("Open Cases: %d/%d (%s) - Cost: %s",
-            openData.Progress, openData.Requirement, openData.Subject, formatPrice(cost, "Cash")))
-    else
-        Labels.OpenCases:Set("Open Cases: - No quest")
-    end
-    
-    if playData then
-        Labels.PlayBattles:Set(string.format("Play Battles: %d/%d (%s)",
-            playData.Progress, playData.Requirement, playData.Subject))
-    else
-        Labels.PlayBattles:Set("Play Battles: - No quest")
-    end
-    
-    if winData then
-        Labels.WinBattles:Set(string.format("Win Battles: %d/%d", winData.Progress, winData.Requirement))
-    else
-        Labels.WinBattles:Set("Win Battles: - No quest")
-    end
-end
-
--- Misc Tab
+-- Tab: Misc
 local TabMisc = Window:CreateTab("Misc", 4483362458)
-TabMisc:CreateSection("Gift AutoClaiming")
+TabMisc:CreateSection("Gifts")
 
-Toggles.ClaimGift = TabMisc:CreateToggle({
-    Name = "Auto claim gift",
-    CurrentValue = true,
+TabMisc:CreateToggle({
+    Name = "Auto Claim Gifts",
+    CurrentValue = State.Features.ClaimGift,
     Flag = "AutoClaimGift",
     Callback = function(value)
-        State.AutoClaimGift = value
+        State.Features.ClaimGift = value
     end,
 })
 
 TabMisc:CreateToggle({
-    Name = "Auto Rejoin when Gift9 opened",
-    CurrentValue = true,
+    Name = "Auto Rejoin on Gift 9",
+    CurrentValue = State.Features.RejoinOnGift9,
     Flag = "AutoRejoinGift9",
     Callback = function(value)
-        State.AutoRejoinOnGift9 = value
+        State.Features.RejoinOnGift9 = value
     end,
 })
 
-Toggles.LevelCases = TabMisc:CreateToggle({
-    Name = "Auto Open LEVEL Cases",
-    CurrentValue = true,
+TabMisc:CreateSection("Special Cases")
+
+TabMisc:CreateToggle({
+    Name = "Auto Level Cases",
+    CurrentValue = State.Features.LevelCases,
     Flag = "AutoOpenLevelCases",
     Callback = function(value)
-        State.AutoLevelCases = value
-        if value then
-            updateLevelCaseCooldowns()
-        end
+        State.Features.LevelCases = value
+        if value then LevelSystem.updateCooldowns() end
     end,
 })
 
-Toggles.AutoGalaxyCase = TabMisc:CreateToggle({
-    Name = "Auto Open Star Gazing Case (50+ Tickets)",
-    CurrentValue = true,
+TabMisc:CreateToggle({
+    Name = "Auto Galaxy (50+ Tickets)",
+    CurrentValue = State.Features.GalaxyCase,
     Flag = "AutoGalaxyCase",
     Callback = function(value)
-        State.AutoGalaxyCase = value
+        State.Features.GalaxyCase = value
     end,
 })
 
-Toggles.AutoLightCase = TabMisc:CreateToggle({
-    Name = "Auto Open Light Case Wild (Balance > 140k)",
-    CurrentValue = true,
-    Flag = "AutoLightCase",
+TabMisc:CreateToggle({
+    Name = "Auto Katowice Wild (140k+ Balance)",
+    CurrentValue = State.Features.KatowiceWild,
+    Flag = "AutoKatowiceCase",
     Callback = function(value)
-        State.AutoLightCase = value
+        State.Features.KatowiceWild = value
     end,
 })
 
-TabMisc:CreateSection("Auto Sell")
+TabMisc:CreateSection("Inventory")
 
-Toggles.AutoSell = TabMisc:CreateToggle({
-    Name = "Auto Sell Unlocked Items every 2 minutes",
-    CurrentValue = true,
+TabMisc:CreateToggle({
+    Name = "Auto Sell (2 min interval)",
+    CurrentValue = State.Features.AutoSell,
     Flag = "AutoSell",
     Callback = function(value)
-        State.AutoSell = value
+        State.Features.AutoSell = value
     end,
 })
 
 --------------------------------------------------------------------------------
--- Main Loop
+-- QUEST LABELS
 --------------------------------------------------------------------------------
 
-RunService.Heartbeat:Connect(function()
-    local now = tick()
-
-    updateBattleUI()
-
-    -- Auto sell (every 2 minutes)
-    if State.AutoSell and now - State.LastSellTime >= Config.SellInterval then
-        State.LastSellTime = now
-        sellUnlockedItems()
+local function updateQuestLabels()
+    local openData = QuestSystem.getOpen()
+    local playData = QuestSystem.getPlay()
+    local winData = QuestSystem.getWin()
+    
+    if openData then
+        local cost = openData.Remaining * Util.getCasePrice(openData.Subject)
+        Labels.Open:Set(string.format("Open: %d/%d (%s) - $%d", 
+            openData.Progress, openData.Requirement, openData.Subject, cost))
+    else
+        Labels.Open:Set("Open: No quest")
     end
+    
+    if playData then
+        Labels.Play:Set(string.format("Play: %d/%d (%s)", 
+            playData.Progress, playData.Requirement, playData.Subject))
+    else
+        Labels.Play:Set("Play: No quest")
+    end
+    
+    if winData then
+        Labels.Win:Set(string.format("Win: %d/%d", winData.Progress, winData.Requirement))
+    else
+        Labels.Win:Set("Win: No quest")
+    end
+end
 
+--------------------------------------------------------------------------------
+-- MAIN PROCESSOR
+--------------------------------------------------------------------------------
+
+local function processFeatures()
+    local now = tick()
+    local F = State.Features
+    
+    if F.QuestWin or F.QuestPlay then
+        UISuppress.hideBattle()
+    end
+    
+    if F.AutoSell and (now - State.Time.LastSell) >= Config.Cooldown.SellInterval then
+        State.Time.LastSell = now
+        task.spawn(EconomySystem.sellUnlocked)
+    end
+    
     -- Priority 1: Gifts
-    if State.AutoClaimGift then
-        local gift = getNextClaimableGift()
-        if gift and openCase(gift, true) then
-            markGiftClaimed(gift)
-            
-            if gift == "Gift9" and State.AutoRejoinOnGift9 then
-                task.wait(2)
-                rejoinServer()
-                return
+    if F.ClaimGift then
+        local gift = GiftSystem.getNextClaimable()
+        if gift then
+            if CaseSystem.open(gift, true) then
+                GiftSystem.markClaimed(gift)
+                if gift == "Gift9" and F.RejoinOnGift9 then
+                    task.wait(2)
+                    ServerSystem.rejoin()
+                end
+                return true
             end
         end
     end
     
-    -- Priority 2: Level cases
-    if State.AutoLevelCases and State.NextLevelCaseId and State.NextLevelCaseTime <= os.time() then
-        if openCase(State.NextLevelCaseId, false, 1) then
-            task.delay(1, updateLevelCaseCooldowns)
+    -- Priority 2: Level Cases
+    if F.LevelCases and State.NextLevelCaseId then
+        if State.Time.NextLevelCase <= os.time() then
+            if CaseSystem.open(State.NextLevelCaseId, false, 1) then
+                task.delay(1, LevelSystem.updateCooldowns)
+                return true
+            end
         end
-    
-    -- Priority 3: Galaxy cases (tickets >= 50) - Automatique
-    elseif State.AutoGalaxyCase and getTickets() >= Config.GalaxyTicketThreshold then
-        openCase("StarGazingCase", false, 5, false)
-    
-    -- Priority 4: Light cases in wild mode (balance > 140k)
-    elseif State.AutoLightCase and State.CaseReady and getBalance() > Config.LightBalanceThreshold then
-        openCase("KATOWICE_CHALLENGERS", false, 5, true)
-    
-    -- Priority 5: Play quest battles
-    elseif State.AutoQuestPlay and getQuestData("Play") and getQuestData("Play").Remaining > 0 then
-        local playData = getQuestData("Play")
-        local cooldown = math.random(Config.BattleCooldown.Min, Config.BattleCooldown.Max)
-        if now - State.LastBattleTime >= cooldown then
-            State.LastBattleTime = now
-            createBotBattle(string.upper(playData.Subject))
-        end
-    
-    -- Priority 6: Win quest battles
-    elseif State.AutoQuestWin and getQuestData("Win") and getQuestData("Win").Remaining > 0 then
-        local winData = getQuestData("Win")
-        local cooldown = math.random(Config.BattleCooldown.Min, Config.BattleCooldown.Max)
-        if now - State.LastBattleTime >= cooldown then
-            State.LastBattleTime = now
-            createBotBattle("CLASSIC")
-        end
-    
-    -- Priority 7: Open quest cases
-    elseif State.AutoQuestOpen and getQuestData("Open") and getQuestData("Open").Remaining > 0 then
-        local openData = getQuestData("Open")
-        openCase(openData.Subject, false, math.min(5, openData.Remaining), false)
-    
-    -- Priority 8: Selected case from dropdown - Auto Case Opening (dernière priorité)
-    elseif State.AutoCase and State.SelectedCase then
-        openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
     end
     
-    updateQuestLabels()
-end)
-
---------------------------------------------------------------------------------
--- Initialization
---------------------------------------------------------------------------------
-
-if State.AutoLevelCases then
-    updateLevelCaseCooldowns()
+    -- Priority 3: Galaxy Cases
+    if F.GalaxyCase and Util.getTickets() >= Config.Threshold.GalaxyTickets then
+        if CaseSystem.open("StarGazingCase", false, 5, false) then
+            return true
+        end
+    end
+    
+    -- Priority 4: Katowice Wild
+    if F.KatowiceWild and State.Ready.Case and Util.getBalance() > Config.Threshold.KatowiceBalance then
+        if CaseSystem.open("KATOWICE_CHALLENGERS", false, 5, true) then
+            return true
+        end
+    end
+    
+    -- Priority 5: Quest Play Battles
+    if F.QuestPlay then
+        local playData = QuestSystem.getPlay()
+        if playData and playData.Remaining > 0 then
+            local cooldown = Util.randomCooldown(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
+            if (now - State.Time.LastBattle) >= cooldown then
+                State.Time.LastBattle = now
+                BattleSystem.createBotBattle(string.upper(playData.Subject))
+                return true
+            end
+        end
+    end
+    
+    -- Priority 6: Quest Win Battles
+    if F.QuestWin then
+        local winData = QuestSystem.getWin()
+        if winData and winData.Remaining > 0 then
+            local cooldown = Util.randomCooldown(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
+            if (now - State.Time.LastBattle) >= cooldown then
+                State.Time.LastBattle = now
+                BattleSystem.createBotBattle("CLASSIC")
+                return true
+            end
+        end
+    end
+    
+    -- Priority 7: Quest Open Cases
+    if F.QuestOpen then
+        local openData = QuestSystem.getOpen()
+        if openData and openData.Remaining > 0 then
+            local qty = math.min(5, openData.Remaining)
+            if CaseSystem.open(openData.Subject, false, qty, false) then
+                return true
+            end
+        end
+    end
+    
+    -- Priority 8: Selected Case
+    if F.OpenCase and State.Case.Selected then
+        CaseSystem.open(State.Case.Selected, false, State.Case.Quantity, State.Case.WildMode)
+    end
+    
+    return false
 end
 
--- Claim initial de toutes les catégories au démarrage
-claimAllIndexCategories()
+--------------------------------------------------------------------------------
+-- MAIN LOOP
+--------------------------------------------------------------------------------
+
+-- Main processor loop (2x per second is sufficient for cooldown-based actions)
+task.spawn(function()
+    while true do
+        processFeatures()
+        task.wait(0.5)
+    end
+end)
+
+-- Quest labels update loop (every 2 seconds, data changes rarely)
+task.spawn(function()
+    while true do
+        updateQuestLabels()
+        task.wait(2)
+    end
+end)
+
+-- Init
+if State.Features.LevelCases then
+    LevelSystem.updateCooldowns()
+end
+task.spawn(EconomySystem.claimAllIndex)
