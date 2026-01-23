@@ -69,7 +69,7 @@ local Config = {
     },
     Threshold = {
         GalaxyTickets = 50,
-        KatowiceBalance = 100000,
+        KatowiceBalance = 140000,
     },
     LevelCases = {
         "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
@@ -78,7 +78,7 @@ local Config = {
     Whitelist = {
         ["DesertEagle_PlasmaStorm"] = true,
         ["ButterflyKnife_Wrapped"] = true,
-        ["iBUYPOWERHoloKato2014"] = true,
+        ["TitanHoloKato2014"] = true,
         ["SkeletonKnife_PlanetaryDevastation"] = true,
         ["Karambit_Interstellar"] = true,
         ["ButterflyKnife_DemonHound"] = true,
@@ -740,7 +740,7 @@ local function processFeatures()
     
     -- Priority 4: Katowice Wild
     if F.KatowiceWild and State.Ready.Case and Util.getBalance() > Config.Threshold.KatowiceBalance then
-        if CaseSystem.open("KATOWICE_CHALLENGERS", false, 5, true) then
+        if CaseSystem.open("LIGHT", false, 5, true) then
             return true
         end
     end
