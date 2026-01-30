@@ -65,11 +65,12 @@ local Config = {
         BattleMax = 18,
         CaseMin = 8,
         CaseMax = 12,
-        SellInterval = 120,
+        SellMin = 120,
+        SellMax = 300,
     },
     Threshold = {
         GalaxyTickets = 50,
-        KatowiceBalance = 140000,
+        KatowiceBalance = 100000,
     },
     LevelCases = {
         "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
@@ -78,7 +79,7 @@ local Config = {
     Whitelist = {
         ["DesertEagle_PlasmaStorm"] = true,
         ["ButterflyKnife_Wrapped"] = true,
-        ["TitanHoloKato2014"] = true,
+        ["iBUYPOWERHoloKato2014"] = true,
         ["SkeletonKnife_PlanetaryDevastation"] = true,
         ["Karambit_Interstellar"] = true,
         ["ButterflyKnife_DemonHound"] = true,
@@ -111,6 +112,7 @@ local State = {
     Time = {
         LastBattle = 0,
         LastSell = 0,
+        NextSell = 0,
         NextLevelCase = math.huge,
     },
     Ready = {
@@ -650,11 +652,14 @@ TabMisc:CreateToggle({
 TabMisc:CreateSection("Inventory")
 
 TabMisc:CreateToggle({
-    Name = "Auto Sell (2 min interval)",
+    Name = "Auto Sell (2-5 min random)",
     CurrentValue = State.Features.AutoSell,
     Flag = "AutoSell",
     Callback = function(value)
         State.Features.AutoSell = value
+        if value and State.Time.NextSell == 0 then
+            State.Time.NextSell = tick() + Util.randomCooldown(Config.Cooldown.SellMin, Config.Cooldown.SellMax)
+        end
     end,
 })
 
@@ -701,8 +706,9 @@ local function processFeatures()
         UISuppress.hideBattle()
     end
     
-    if F.AutoSell and (now - State.Time.LastSell) >= Config.Cooldown.SellInterval then
+    if F.AutoSell and now >= State.Time.NextSell then
         State.Time.LastSell = now
+        State.Time.NextSell = now + Util.randomCooldown(Config.Cooldown.SellMin, Config.Cooldown.SellMax)
         task.spawn(EconomySystem.sellUnlocked)
     end
     
@@ -740,7 +746,7 @@ local function processFeatures()
     
     -- Priority 4: Katowice Wild
     if F.KatowiceWild and State.Ready.Case and Util.getBalance() > Config.Threshold.KatowiceBalance then
-        if CaseSystem.open("LIGHT", false, 5, true) then
+        if CaseSystem.open("KATOWICE_CHALLENGERS", false, 5, true) then
             return true
         end
     end
