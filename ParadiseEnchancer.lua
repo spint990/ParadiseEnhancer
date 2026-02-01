@@ -450,6 +450,9 @@ local function walkToMeteor(targetPos)
         -- Start moving immediately (no delay)
         hum:MoveTo(targetPos)
         
+        local lastPos = root.Position
+        local stuckCount = 0
+        
         while Meteor.Walking and Meteor.Target do
             root = getRoot()
             hum = getHumanoid()
@@ -459,24 +462,27 @@ local function walkToMeteor(targetPos)
             local dist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
             if dist <= 5 then break end
             
-            -- Keep moving directly to target (simple and fast)
+            -- Check if stuck (moved less than 1 stud)
+            local moved = (root.Position - lastPos).Magnitude
+            if moved < 1 then
+                stuckCount = stuckCount + 1
+                -- Jump to get over obstacles
+                if stuckCount >= 2 then
+                    hum.Jump = true
+                    stuckCount = 0
+                end
+            else
+                stuckCount = 0
+            end
+            lastPos = root.Position
+            
+            -- Keep moving directly to target
             hum:MoveTo(target)
             
-            -- Wait and check progress
-            local timeout = 0
-            while timeout < 30 and Meteor.Walking do
-                root = getRoot()
-                if not root then break end
-                
-                local currentDist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
-                if currentDist <= 5 then break end
-                
-                -- Update target if changed
-                if Meteor.Target ~= target then break end
-                
-                timeout = timeout + 1
-                task.wait(0.2)
-            end
+            -- Update target if changed
+            if Meteor.Target ~= target then break end
+            
+            task.wait(0.25)
         end
         
         Meteor.Walking = false
