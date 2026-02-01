@@ -447,13 +447,8 @@ local function walkToMeteor(targetPos)
             return
         end
         
-        local path = PathfindingService:CreatePath({
-            AgentRadius = 2,
-            AgentHeight = 5,
-            AgentCanJump = true,
-            AgentCanClimb = false,
-            WaypointSpacing = 4,
-        })
+        -- Start moving immediately (no delay)
+        hum:MoveTo(targetPos)
         
         while Meteor.Walking and Meteor.Target do
             root = getRoot()
@@ -462,46 +457,26 @@ local function walkToMeteor(targetPos)
             
             local target = Meteor.Target
             local dist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
-            if dist <= 5 then break end  -- Increased tolerance for low FPS
+            if dist <= 5 then break end
             
-            local ok = pcall(function()
-                path:ComputeAsync(root.Position, target)
-            end)
+            -- Keep moving directly to target (simple and fast)
+            hum:MoveTo(target)
             
-            if ok and path.Status == Enum.PathStatus.Success then
-                for _, wp in ipairs(path:GetWaypoints()) do
-                    if not Meteor.Walking or Meteor.Target ~= target then break end
-                    
-                    root = getRoot()
-                    if not root then break end
-                    
-                    if wp.Action == Enum.PathWaypointAction.Jump then
-                        hum.Jump = true
-                    end
-                    
-                    hum:MoveTo(wp.Position)
-                    
-                    -- Increased timeout for low FPS (10 FPS = ~100ms per frame)
-                    local timeout = 0
-                    while timeout < 40 and Meteor.Walking do
-                        root = getRoot()
-                        if not root then break end
-                        
-                        local wpDist = (Vector3.new(root.Position.X, wp.Position.Y, root.Position.Z) - wp.Position).Magnitude
-                        if wpDist <= 5 then break end  -- Increased tolerance for low FPS
-                        
-                        timeout = timeout + 1
-                        task.wait(0.15)  -- Slightly longer wait for low FPS
-                    end
-                    
-                    if timeout >= 40 then break end
-                end
-            else
-                hum:MoveTo(target)
-                task.wait(0.75)  -- Longer wait for low FPS fallback
+            -- Wait and check progress
+            local timeout = 0
+            while timeout < 30 and Meteor.Walking do
+                root = getRoot()
+                if not root then break end
+                
+                local currentDist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
+                if currentDist <= 5 then break end
+                
+                -- Update target if changed
+                if Meteor.Target ~= target then break end
+                
+                timeout = timeout + 1
+                task.wait(0.2)
             end
-            
-            task.wait(0.15)  -- Slightly longer loop wait for low FPS
         end
         
         Meteor.Walking = false
