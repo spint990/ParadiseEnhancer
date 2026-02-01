@@ -216,7 +216,8 @@ local function startSuppression()
     local openScreen = UI.OpenAnimation.CaseOpeningScreen
     local endPreview = UI.OpenAnimation.EndPreview
     
-    suppressConn = RunService.RenderStepped:Connect(function()
+    -- Use Heartbeat instead of RenderStepped for low FPS stability
+    suppressConn = RunService.Heartbeat:Connect(function()
         if State.CaseReady then
             suppressConn:Disconnect()
             suppressConn = nil
@@ -461,7 +462,7 @@ local function walkToMeteor(targetPos)
             
             local target = Meteor.Target
             local dist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
-            if dist <= 3 then break end
+            if dist <= 5 then break end  -- Increased tolerance for low FPS
             
             local ok = pcall(function()
                 path:ComputeAsync(root.Position, target)
@@ -480,26 +481,27 @@ local function walkToMeteor(targetPos)
                     
                     hum:MoveTo(wp.Position)
                     
+                    -- Increased timeout for low FPS (10 FPS = ~100ms per frame)
                     local timeout = 0
-                    while timeout < 20 and Meteor.Walking do
+                    while timeout < 40 and Meteor.Walking do
                         root = getRoot()
                         if not root then break end
                         
                         local wpDist = (Vector3.new(root.Position.X, wp.Position.Y, root.Position.Z) - wp.Position).Magnitude
-                        if wpDist <= 4 then break end
+                        if wpDist <= 5 then break end  -- Increased tolerance for low FPS
                         
                         timeout = timeout + 1
-                        task.wait(0.1)
+                        task.wait(0.15)  -- Slightly longer wait for low FPS
                     end
                     
-                    if timeout >= 20 then break end
+                    if timeout >= 40 then break end
                 end
             else
                 hum:MoveTo(target)
-                task.wait(0.5)
+                task.wait(0.75)  -- Longer wait for low FPS fallback
             end
             
-            task.wait(0.1)
+            task.wait(0.15)  -- Slightly longer loop wait for low FPS
         end
         
         Meteor.Walking = false
@@ -860,19 +862,19 @@ local function process()
     end
 end
 
--- Main loop (0.5s interval)
+-- Main loop (0.75s interval - optimized for 10 FPS)
 task.spawn(function()
     while true do
         process()
-        task.wait(0.5)
+        task.wait(0.75)
     end
 end)
 
--- Quest label update (2s interval)
+-- Quest label update (3s interval - optimized for 10 FPS)
 task.spawn(function()
     while true do
         updateQuestLabels()
-        task.wait(2)
+        task.wait(3)
     end
 end)
 
