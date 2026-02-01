@@ -600,7 +600,7 @@ TabCases:CreateToggle({
 CaseDropdown = TabCases:CreateDropdown({
     Name = "Select Case",
     Options = buildCaseOptions(),
-    CurrentOption = {"Star Gazing Case " .. formatPrice(State.CaseQuantity * 10, "Tickets")},
+    CurrentOption = {"Divine Case " .. formatPrice(State.CaseQuantity * 10, "Tickets")},
     MultipleOptions = false,
     Flag = "SelectedCase",
     Callback = function(opt)
