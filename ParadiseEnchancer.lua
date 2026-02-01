@@ -103,7 +103,7 @@ local State = {
     MeteorWalk   = true,
     
     -- Case settings
-    SelectedCase = "StarGazingCase",
+    SelectedCase = "DivineCase",
     CaseQuantity = 5,
     WildMode     = false,
     CaseReady    = true,
