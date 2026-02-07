@@ -1,6 +1,7 @@
 --[[
     Paradise Enhancer
     Multi-instance automation for Case Paradise
+    Optimized & Human-Like
 ]]
 
 --------------------------------------------------------------------------------
@@ -12,6 +13,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 local TeleportService   = game:GetService("TeleportService")
 local PathfindingService = game:GetService("PathfindingService")
+
+--------------------------------------------------------------------------------
+-- UTIL & RANDOMIZATION
+--------------------------------------------------------------------------------
+
+local RNG = Random.new()
+
+local function randomFloat(min, max)
+    return RNG:NextNumber(min, max)
+end
+
+local function randomDelay(min, max)
+    local delayTime = RNG:NextNumber(min, max)
+    task.wait(delayTime)
+    return delayTime
+end
 
 --------------------------------------------------------------------------------
 -- REFERENCES
@@ -30,14 +47,14 @@ local CasesModule = require(Modules:WaitForChild("Cases"))
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local Remote = {
-    OpenCase     = Remotes:WaitForChild("OpenCase"),
-    CreateBattle = Remotes:WaitForChild("CreateBattle"),
+    OpenCase      = Remotes:WaitForChild("OpenCase"),
+    CreateBattle  = Remotes:WaitForChild("CreateBattle"),
     CheckCooldown = Remotes:WaitForChild("CheckCooldown"),
-    AddBot       = Remotes:WaitForChild("AddBot"),
-    StartBattle  = Remotes:WaitForChild("StartBattle"),
-    Sell         = Remotes:WaitForChild("Sell"),
-    Exchange     = Remotes:WaitForChild("ExchangeEvent"),
-    ClaimIndex   = Remotes:WaitForChild("ClaimCategoryIndex"),
+    AddBot        = Remotes:WaitForChild("AddBot"),
+    StartBattle   = Remotes:WaitForChild("StartBattle"),
+    Sell          = Remotes:WaitForChild("Sell"),
+    Exchange      = Remotes:WaitForChild("ExchangeEvent"),
+    ClaimIndex    = Remotes:WaitForChild("ClaimCategoryIndex"),
 }
 
 local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
@@ -49,10 +66,11 @@ local UI = {
     OpenAnimation = PlayerGui:WaitForChild("OpenAnimation"),
     Battle        = PlayerGui:WaitForChild("Battle"),
 }
-UI.Inventory = UI.Windows.Inventory
-UI.Index     = UI.Windows.Index
+-- Initialize sub-references safely
+UI.Inventory = UI.Windows:WaitForChild("Inventory")
+UI.Index     = UI.Windows:WaitForChild("Index")
 
--- Suppress battle event callbacks
+-- Suppress battle event callbacks to avoid client-side clutter
 Remote.StartBattle.OnClientEvent:Connect(function() end)
 
 --------------------------------------------------------------------------------
@@ -61,9 +79,9 @@ Remote.StartBattle.OnClientEvent:Connect(function() end)
 
 local Config = {
     Cooldown = {
-        BattleMin = 14, BattleMax = 18,
-        CaseMin   = 8,  CaseMax   = 12,
-        SellMin   = 120, SellMax  = 300,
+        BattleMin = 14.0, BattleMax = 18.0,
+        CaseMin   = 8.0,  CaseMax   = 12.0,
+        SellMin   = 120.0, SellMax  = 300.0,
     },
     Threshold = {
         GalaxyTickets   = 50,
@@ -74,13 +92,15 @@ local Config = {
         "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120",
     },
     Whitelist = {
-        DesertEagle_PlasmaStorm       = true,
-        ButterflyKnife_Wrapped        = true,
-        TitanHoloKato2014             = true,
+        DesertEagle_PlasmaStorm            = true,
+        ButterflyKnife_Wrapped             = true,
+        TitanHoloKato2014                  = true,
         SkeletonKnife_PlanetaryDevastation = true,
-        Karambit_Interstellar         = true,
-        ButterflyKnife_DemonHound     = true,
-        AWP_IonCharge                 = true,
+        Karambit_Interstellar              = true,
+        ButterflyKnife_DemonHound          = true,
+        AWP_IonCharge                      = true,
+        Karambit_Intervention         = true,
+        NomadKnife_DivineDeparture    = true,
     },
 }
 
@@ -90,29 +110,32 @@ local Config = {
 
 local State = {
     -- Feature toggles
-    ClaimGift    = true,
-    OpenCase     = true,
-    GalaxyCase   = true,
-    KatowiceWild = true,
-    QuestOpen    = true,
-    QuestPlay    = true,
-    QuestWin     = true,
-    LevelCases   = true,
-    AutoSell     = true,
+    ClaimGift     = true,
+    OpenCase      = true,
+    GalaxyCase    = true,
+    KatowiceWild  = true,
+    QuestOpen     = true,
+    QuestPlay     = true,
+    QuestWin      = true,
+    LevelCases    = true,
+    AutoSell      = true,
     RejoinOnGift9 = true,
-    MeteorWalk   = true,
+    MeteorWalk    = true,
     
     -- Case settings
-    SelectedCase = "DivineCase",
-    CaseQuantity = 5,
-    WildMode     = false,
-    CaseReady    = true,
+    SelectedCase  = "DivineCase",
+    CaseQuantity  = 5,
+    WildMode      = false,
+    CaseReady     = true,
     
     -- Timing
-    LastBattle   = 0,
-    NextSell     = 0,
-    NextLevelCase = math.huge,
+    LastBattle      = 0,
+    NextSell        = 0,
+    NextLevelCase   = math.huge,
     NextLevelCaseId = nil,
+    
+    -- Global Busy
+    IsBusy          = false,
 }
 
 --------------------------------------------------------------------------------
@@ -120,40 +143,41 @@ local State = {
 --------------------------------------------------------------------------------
 
 local Cache = {
-    GiftPlaytimes = {},
+    GiftPlaytimes   = {},
     IndexCategories = {},
-    Cases = {},
+    Cases           = {},
 }
 
--- Gift playtime requirements
+-- Init Gift Playtimes
 for i = 1, 9 do
     local id = "Gift" .. i
-    Cache.GiftPlaytimes[id] = GiftsFolder[id].Value
+    local val = GiftsFolder:FindFirstChild(id)
+    Cache.GiftPlaytimes[id] = val and val.Value or 0
 end
 
--- Index categories (sorted)
+-- Init Index Categories (Sorted)
 do
-    local children = UI.Index.Categories:GetChildren()
-    table.sort(children, function(a, b)
+    local categories = UI.Index.Categories:GetChildren()
+    table.sort(categories, function(a, b)
         return (tonumber(a.Name) or 0) < (tonumber(b.Name) or 0)
     end)
-    for _, child in ipairs(children) do
+    for _, child in ipairs(categories) do
         if child:IsA("StringValue") and child.Value ~= "" then
             table.insert(Cache.IndexCategories, child.Value)
         end
     end
 end
 
--- Case list (excluding admin/level cases)
+-- Init Cases List
 do
     for caseId, data in pairs(CasesModule) do
         if not data.AdminOnly and not caseId:match("^LEVELS?%d+$") then
-            Cache.Cases[#Cache.Cases + 1] = {
+            table.insert(Cache.Cases, {
                 Id       = caseId,
                 Name     = data.Name or caseId,
                 Price    = data.Price or 0,
                 Currency = data.Currency or "Cash",
-            }
+            })
         end
     end
     table.sort(Cache.Cases, function(a, b)
@@ -191,18 +215,14 @@ local function canAfford(caseId, qty, useWild)
     if price <= 0 then return true end
     
     local total = price * (qty or 1)
-    local balance = data.Currency == "Tickets" and getTickets() or getBalance()
+    local balance = (data.Currency == "Tickets") and getTickets() or getBalance()
     return balance >= total
-end
-
-local function randomDelay(min, max)
-    return math.random(min, max)
 end
 
 local function formatPrice(price, currency)
     if price == 0 then return "Free" end
-    local str = price % 1 == 0 and tostring(price) or string.format("%.2f", price)
-    return currency == "Tickets" and (str .. " GINGERBREAD") or ("$" .. str)
+    local str = (price % 1 == 0) and tostring(price) or string.format("%.2f", price)
+    return (currency == "Tickets") and (str .. " GINGERBREAD") or ("$" .. str)
 end
 
 --------------------------------------------------------------------------------
@@ -212,15 +232,19 @@ end
 local suppressConn = nil
 
 local function startSuppression()
+    if suppressConn then return end
+
     local cam = workspace.CurrentCamera
     local openScreen = UI.OpenAnimation.CaseOpeningScreen
     local endPreview = UI.OpenAnimation.EndPreview
     
-    -- Use Heartbeat instead of RenderStepped for low FPS stability
+    -- Use Heartbeat to keep UI hidden during opening
     suppressConn = RunService.Heartbeat:Connect(function()
         if State.CaseReady then
-            suppressConn:Disconnect()
-            suppressConn = nil
+            if suppressConn then
+                suppressConn:Disconnect()
+                suppressConn = nil
+            end
             return
         end
         if cam.FieldOfView ~= 70 then cam.FieldOfView = 70 end
@@ -232,7 +256,9 @@ local function startSuppression()
 end
 
 local function hideBattleUI()
-    UI.Battle.BattleFrame.Visible = false
+    if UI.Battle and UI.Battle:FindFirstChild("BattleFrame") then
+        UI.Battle.BattleFrame.Visible = false
+    end
     UI.Main.Enabled = true
     UI.Windows.Enabled = true
 end
@@ -243,12 +269,16 @@ end
 
 local function openCase(caseId, isGift, qty, useWild)
     local checkId = isGift and "Gift" or caseId
-    if not State.CaseReady or not canAfford(checkId, qty, useWild) then
+    if not State.CaseReady or State.IsBusy or not canAfford(checkId, qty, useWild) then
         return false
     end
     
     State.CaseReady = false
+    State.IsBusy = true
     startSuppression()
+    
+    -- Humanize: Small random delay before sending remote
+    randomDelay(0.1, 0.3)
     
     if isGift then
         Remote.OpenCase:InvokeServer(caseId, -1, false)
@@ -256,9 +286,12 @@ local function openCase(caseId, isGift, qty, useWild)
         Remote.OpenCase:InvokeServer(caseId, qty or 1, false, useWild or false)
     end
     
-    task.delay(randomDelay(Config.Cooldown.CaseMin, Config.Cooldown.CaseMax), function()
+    -- Cooldown reset & Busy release
+    task.delay(randomFloat(Config.Cooldown.CaseMin, Config.Cooldown.CaseMax), function()
         State.CaseReady = true
+        State.IsBusy = false
     end)
+    
     return true
 end
 
@@ -267,20 +300,24 @@ end
 --------------------------------------------------------------------------------
 
 local function isGiftClaimed(id)
-    return ClaimedGifts[id].Value
+    local giftVal = ClaimedGifts:FindFirstChild(id)
+    return giftVal and giftVal.Value
 end
 
 local function markGiftClaimed(id)
     task.wait(1)
-    ClaimedGifts[id].Value = true
-    UI.Windows.Rewards.ClaimedGifts[id].Value = true
+    local giftVal = ClaimedGifts:FindFirstChild(id)
+    if giftVal then giftVal.Value = true end
+    
+    local rewardGift = UI.Windows.Rewards.ClaimedGifts:FindFirstChild(id)
+    if rewardGift then rewardGift.Value = true end
 end
 
 local function getNextGift()
     local pt = getPlaytime()
     for i = 1, 9 do
         local id = "Gift" .. i
-        if not isGiftClaimed(id) and pt >= Cache.GiftPlaytimes[id] then
+        if not isGiftClaimed(id) and pt >= (Cache.GiftPlaytimes[id] or math.huge) then
             return id
         end
     end
@@ -302,7 +339,7 @@ local function getQuestData(questType)
                     Progress    = prog.Value,
                     Requirement = req.Value,
                     Subject     = subj and subj.Value or "",
-                    Remaining   = req.Value - prog.Value,
+                    Remaining   = math.max(0, req.Value - prog.Value),
                 }
             end
         end
@@ -315,9 +352,20 @@ end
 --------------------------------------------------------------------------------
 
 local function createBotBattle(mode)
+    if State.IsBusy then return end
+    State.IsBusy = true
+    
+    randomDelay(0.2, 0.5) -- Random reaction time
     local id = Remote.CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
-    task.wait(1)
-    Remote.AddBot:FireServer(id, Player)
+    task.wait(randomFloat(0.8, 1.2)) -- Wait for battle creation
+    if id then
+        Remote.AddBot:FireServer(id, Player)
+    end
+    
+    -- Assume busy for a minimum battle setup time
+    task.delay(randomFloat(4.0, 6.0), function()
+        State.IsBusy = false
+    end)
 end
 
 --------------------------------------------------------------------------------
@@ -348,12 +396,14 @@ end
 local function claimAllIndex()
     for _, cat in ipairs(Cache.IndexCategories) do
         Remote.ClaimIndex:FireServer(cat)
-        task.wait(2)
+        randomDelay(1.5, 2.5) -- Human-like spacing
     end
 end
 
 local function refreshInventoryUI()
-    local win = PlayerGui.CurrentWindow
+    local win = PlayerGui:FindFirstChild("CurrentWindow")
+    if not win then return end
+    
     local prev = win.Value
     win.Value = "Inventory"
     task.wait(0.1)
@@ -363,43 +413,48 @@ end
 local function sellUnlocked()
     -- Exchange and claim
     Remote.Exchange:FireServer("Exchange")
-    task.wait(2)
+    task.wait(2.0)
     Remote.Exchange:FireServer("Claim")
-    task.wait(0.1)
+    task.wait(0.2)
+    
     claimAllIndex()
-    task.wait(0.1)
+    task.wait(0.2)
     refreshInventoryUI()
     task.wait(0.5)
     
     -- Collect sellable items
     local toSell = {}
-    for _, frame in pairs(UI.Inventory.InventoryFrame.Contents:GetChildren()) do
-        if frame:IsA("Frame") then
-            local itemId = frame:GetAttribute("ItemId")
-            local locked = frame:GetAttribute("locked")
-            if itemId and not locked and not Config.Whitelist[itemId] then
-                toSell[#toSell + 1] = {
-                    Name     = itemId,
-                    Wear     = frame.Wear.Text,
-                    Stattrak = frame.Stattrak.Visible,
-                    Age      = frame.Age.Value,
-                }
+    local invFrame = UI.Inventory:FindFirstChild("InventoryFrame")
+    if invFrame and invFrame:FindFirstChild("Contents") then
+        for _, frame in pairs(invFrame.Contents:GetChildren()) do
+            if frame:IsA("Frame") then
+                local itemId = frame:GetAttribute("ItemId")
+                local locked = frame:GetAttribute("locked")
+                if itemId and not locked and not Config.Whitelist[itemId] then
+                    table.insert(toSell, {
+                        Name     = itemId,
+                        Wear     = frame.Wear.Text,
+                        Stattrak = frame.Stattrak.Visible,
+                        Age      = frame.Age.Value,
+                    })
+                end
             end
         end
     end
     
     if #toSell > 0 then
+        randomDelay(0.5, 1.5) -- Hesitation before selling
         Remote.Sell:InvokeServer(toSell)
     end
 end
 
 --------------------------------------------------------------------------------
--- SERVER
+-- SERVER REJOIN
 --------------------------------------------------------------------------------
 
 local function rejoin()
     if #Players:GetPlayers() <= 1 then
-        Player:Kick("\nRejoining...")
+        Player:Kick("\nRejoining for optimization...")
         task.wait()
         TeleportService:Teleport(game.PlaceId, Player)
     else
@@ -416,18 +471,9 @@ local Meteor = {
     Target  = nil,
 }
 
-local function getCharacter()
-    return Player.Character or Player.CharacterAdded:Wait()
-end
-
-local function getHumanoid()
-    local char = getCharacter()
-    return char and char:FindFirstChildOfClass("Humanoid")
-end
-
-local function getRoot()
-    local char = getCharacter()
-    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char.PrimaryPart)
+local function stopWalking()
+    Meteor.Walking = false
+    Meteor.Target = nil
 end
 
 local function walkToMeteor(targetPos)
@@ -440,33 +486,33 @@ local function walkToMeteor(targetPos)
     Meteor.Target = targetPos
     
     task.spawn(function()
-        local hum = getHumanoid()
-        local root = getRoot()
+        local hum = Player.Character and Player.Character:FindFirstChild("Humanoid")
+        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        
         if not hum or not root then
-            Meteor.Walking = false
+            stopWalking()
             return
         end
         
-        -- Start moving immediately (no delay)
+        -- Start moving
         hum:MoveTo(targetPos)
         
         local lastPos = root.Position
         local stuckCount = 0
         
         while Meteor.Walking and Meteor.Target do
-            root = getRoot()
-            hum = getHumanoid()
-            if not root or not hum then break end
+            hum = Player.Character and Player.Character:FindFirstChild("Humanoid")
+            root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if not hum or not root then break end
             
             local target = Meteor.Target
             local dist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
             if dist <= 5 then break end
             
-            -- Check if stuck (moved less than 1 stud)
+            -- Check if stuck
             local moved = (root.Position - lastPos).Magnitude
             if moved < 1 then
                 stuckCount = stuckCount + 1
-                -- Jump to get over obstacles
                 if stuckCount >= 2 then
                     hum.Jump = true
                     stuckCount = 0
@@ -476,52 +522,46 @@ local function walkToMeteor(targetPos)
             end
             lastPos = root.Position
             
-            -- Keep moving directly to target
             hum:MoveTo(target)
             
-            -- Update target if changed
             if Meteor.Target ~= target then break end
             
             task.wait(0.25)
         end
         
-        Meteor.Walking = false
-        Meteor.Target = nil
+        stopWalking()
     end)
-end
-
-local function stopWalking()
-    Meteor.Walking = false
-    Meteor.Target = nil
 end
 
 local function initMeteor()
     local temp = workspace:WaitForChild("Temp", 10)
     if not temp then return end
     
-    -- Handle existing hitboxes
-    for _, child in ipairs(temp:GetChildren()) do
-        if child.Name == "MeteorHitHitbox" and State.MeteorWalk then
-            local hit = child:FindFirstChild("Hit")
-            if hit then walkToMeteor(hit.Position) end
-        end
-    end
-    
-    -- New hitboxes
-    temp.ChildAdded:Connect(function(child)
+    -- Function to handle findings
+    local function checkChild(child)
         if not State.MeteorWalk then return end
+        
         if child.Name == "MeteorHitHitbox" then
             local hit = child:WaitForChild("Hit", 2)
             if hit then walkToMeteor(hit.Position) end
         elseif child:IsA("BasePart") and child.Name == "Hit" then
             walkToMeteor(child.Position)
         end
-    end)
+    end
     
-    -- Hitbox removed
+    -- Check existing
+    for _, child in ipairs(temp:GetChildren()) do
+        checkChild(child)
+    end
+    
+    -- Connect new
+    temp.ChildAdded:Connect(checkChild)
+    
+    -- Cleanup
     temp.ChildRemoved:Connect(function(child)
         if child.Name ~= "MeteorHitHitbox" then return end
         task.delay(0.5, function()
+            -- Double check it's strictly gone
             for _, c in ipairs(temp:GetChildren()) do
                 if c.Name == "MeteorHitHitbox" then return end
             end
@@ -553,7 +593,7 @@ local function buildCaseOptions()
         local price = State.WildMode and getWildPrice(c.Id) or c.Price
         local total = price * State.CaseQuantity
         local wild = State.WildMode and " (Wild)" or ""
-        opts[#opts + 1] = c.Name .. wild .. " " .. formatPrice(total, c.Currency)
+        table.insert(opts, c.Name .. wild .. " " .. formatPrice(total, c.Currency))
     end
     return opts
 end
@@ -569,10 +609,13 @@ local function updateDropdown()
     end
 end
 
--- Tab: Cases
-local TabCases = Window:CreateTab("Cases", 4483362458)
-TabCases:CreateSection("Case Opening")
+-- TABS
+local TabCases     = Window:CreateTab("Cases", 4483362458)
+local TabQuests    = Window:CreateTab("Quests", 4483362458)
+local TabAuto      = Window:CreateTab("Automation", 4483362458)
 
+-- Tab: Cases
+TabCases:CreateSection("Case Opening")
 TabCases:CreateToggle({
     Name = "Auto Open",
     CurrentValue = State.OpenCase,
@@ -605,7 +648,9 @@ TabCases:CreateDropdown({
     Flag = "CaseQuantity",
     Callback = function(opt)
         State.CaseQuantity = tonumber(type(opt) == "table" and opt[1] or opt) or 1
-        CaseDropdown:Refresh(buildCaseOptions())
+        if CaseDropdown and CaseDropdown.Refresh then
+            CaseDropdown:Refresh(buildCaseOptions())
+        end
         updateDropdown()
     end,
 })
@@ -616,22 +661,21 @@ TabCases:CreateToggle({
     Flag = "WildMode",
     Callback = function(v)
         State.WildMode = v
-        CaseDropdown:Refresh(buildCaseOptions())
+        if CaseDropdown and CaseDropdown.Refresh then
+            CaseDropdown:Refresh(buildCaseOptions())
+        end
         updateDropdown()
     end,
 })
 
 -- Tab: Quests
-local TabQuests = Window:CreateTab("Quests", 4483362458)
 TabQuests:CreateSection("Quest Automation")
-
 TabQuests:CreateToggle({
     Name = "Open Cases",
     CurrentValue = State.QuestOpen,
     Flag = "AutoQuestOpen",
     Callback = function(v) State.QuestOpen = v end,
 })
-
 TabQuests:CreateToggle({
     Name = "Play Battles",
     CurrentValue = State.QuestPlay,
@@ -641,7 +685,6 @@ TabQuests:CreateToggle({
         if v then hideBattleUI() end
     end,
 })
-
 TabQuests:CreateToggle({
     Name = "Win Battles",
     CurrentValue = State.QuestWin,
@@ -658,16 +701,13 @@ Labels.Play = TabQuests:CreateLabel("Play: -")
 Labels.Win  = TabQuests:CreateLabel("Win: -")
 
 -- Tab: Automation
-local TabAuto = Window:CreateTab("Automation", 4483362458)
 TabAuto:CreateSection("Gifts")
-
 TabAuto:CreateToggle({
     Name = "Claim Gifts",
     CurrentValue = State.ClaimGift,
     Flag = "AutoClaimGift",
     Callback = function(v) State.ClaimGift = v end,
 })
-
 TabAuto:CreateToggle({
     Name = "Rejoin on Gift 9",
     CurrentValue = State.RejoinOnGift9,
@@ -676,7 +716,6 @@ TabAuto:CreateToggle({
 })
 
 TabAuto:CreateSection("Special Cases")
-
 TabAuto:CreateToggle({
     Name = "Level Cases",
     CurrentValue = State.LevelCases,
@@ -686,14 +725,12 @@ TabAuto:CreateToggle({
         if v then updateLevelCooldowns() end
     end,
 })
-
 TabAuto:CreateToggle({
     Name = "Galaxy (50+ Tickets)",
     CurrentValue = State.GalaxyCase,
     Flag = "AutoGalaxyCase",
     Callback = function(v) State.GalaxyCase = v end,
 })
-
 TabAuto:CreateToggle({
     Name = "Katowice Wild (140k+)",
     CurrentValue = State.KatowiceWild,
@@ -702,7 +739,6 @@ TabAuto:CreateToggle({
 })
 
 TabAuto:CreateSection("Economy")
-
 TabAuto:CreateToggle({
     Name = "Sell Items",
     CurrentValue = State.AutoSell,
@@ -711,7 +747,6 @@ TabAuto:CreateToggle({
 })
 
 TabAuto:CreateSection("Events")
-
 TabAuto:CreateToggle({
     Name = "Meteor Walk",
     CurrentValue = State.MeteorWalk,
@@ -752,110 +787,121 @@ local function updateQuestLabels()
 end
 
 --------------------------------------------------------------------------------
--- MAIN LOOP
+-- AUTO-UPDATERS
 --------------------------------------------------------------------------------
 
-local function tick_now() return tick() end
-
-local function process()
-    local now = tick_now()
-    
-    -- Hide battle UI if needed
-    if State.QuestWin or State.QuestPlay then
-        hideBattleUI()
-    end
-    
-    -- Auto sell on interval
-    if State.AutoSell and now >= State.NextSell then
-        State.NextSell = now + randomDelay(Config.Cooldown.SellMin, Config.Cooldown.SellMax)
-        task.spawn(sellUnlocked)
-    end
-    
-    -- P1: Gifts
-    if State.ClaimGift then
-        local gift = getNextGift()
-        if gift and openCase(gift, true) then
-            markGiftClaimed(gift)
-            if gift == "Gift9" and State.RejoinOnGift9 then
-                task.wait(2)
-                rejoin()
-            end
-            return
-        end
-    end
-    
-    -- P2: Level Cases
-    if State.LevelCases and State.NextLevelCaseId and State.NextLevelCase <= os.time() then
-        if openCase(State.NextLevelCaseId, false, 1) then
-            task.delay(1, updateLevelCooldowns)
-            return
-        end
-    end
-    
-    -- P3: Galaxy Cases
-    if State.GalaxyCase and getTickets() >= Config.Threshold.GalaxyTickets then
-        if openCase("DivineCase", false, 5, false) then return end
-    end
-    
-    -- P4: Katowice Wild
-    if State.KatowiceWild and State.CaseReady and getBalance() > Config.Threshold.KatowiceBalance then
-        if openCase("LIGHT", false, 5, true) then return end
-    end
-    
-    -- P5: Quest Play
-    if State.QuestPlay then
-        local play = getQuestData("Play")
-        if play and play.Remaining > 0 then
-            local cd = randomDelay(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
-            if (now - State.LastBattle) >= cd then
-                State.LastBattle = now
-                createBotBattle(string.upper(play.Subject))
-                return
-            end
-        end
-    end
-    
-    -- P6: Quest Win
-    if State.QuestWin then
-        local win = getQuestData("Win")
-        if win and win.Remaining > 0 then
-            local cd = randomDelay(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
-            if (now - State.LastBattle) >= cd then
-                State.LastBattle = now
-                createBotBattle("CLASSIC")
-                return
-            end
-        end
-    end
-    
-    -- P7: Quest Open
-    if State.QuestOpen then
-        local open = getQuestData("Open")
-        if open and open.Remaining > 0 then
-            local qty = math.min(5, open.Remaining)
-            if openCase(open.Subject, false, qty, false) then return end
-        end
-    end
-    
-    -- P8: Selected Case
-    if State.OpenCase and State.SelectedCase then
-        openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
-    end
-end
-
--- Main loop (0.75s interval - optimized for 10 FPS)
+-- Main Logic Loop
 task.spawn(function()
     while true do
-        process()
-        task.wait(0.75)
+        -- Randomize tick interval slightly (0.7 to 0.9s)
+        randomDelay(0.7, 0.9)
+        
+        -- Global Busy Check (prevents doing two things at once)
+        if State.IsBusy then continue end
+
+        local now = tick()
+        
+        -- 1. UI Cleanup (Non-blocking, high priority)
+        if State.QuestWin or State.QuestPlay then
+            hideBattleUI()
+        end
+        
+        -- Priority 1: Selling (Takes time, should block everything else)
+        if State.AutoSell and now >= State.NextSell then
+            State.NextSell = now + randomFloat(Config.Cooldown.SellMin, Config.Cooldown.SellMax)
+            State.IsBusy = true
+            task.spawn(function()
+                sellUnlocked()
+                State.IsBusy = false
+            end)
+            continue -- Skip other actions this tick
+        end
+        
+        -- Priority 2: Gifts (Free stuff first)
+        if State.ClaimGift then
+            local gift = getNextGift()
+            if gift then
+                -- openCase handles its own localized caching, but we need to respect global busy
+                if openCase(gift, true) then
+                    markGiftClaimed(gift)
+                    if gift == "Gift9" and State.RejoinOnGift9 then
+                         task.wait(randomFloat(2.0, 4.0))
+                         rejoin()
+                    end
+                    continue -- Action taken
+                end
+            end
+        end
+        
+        -- Priority 3: Level Cases (Rare/High Value)
+        if State.LevelCases and State.NextLevelCaseId and State.NextLevelCase <= os.time() then
+            if openCase(State.NextLevelCaseId, false, 1) then
+                task.delay(1.0, updateLevelCooldowns)
+                continue
+            end
+        end
+        
+        -- Priority 4: Katowice Wild (High Value Economy)
+        if State.KatowiceWild and State.CaseReady and getBalance() > Config.Threshold.KatowiceBalance then
+            if openCase("LIGHT", false, 5, true) then continue end
+        end
+        
+        -- Priority 5: Galaxy Cases (Ticket Dump)
+        if State.GalaxyCase and getTickets() >= Config.Threshold.GalaxyTickets then
+            if openCase("DivineCase", false, 5, false) then continue end
+        end
+        
+        -- Priority 6: Quest Battles (Play/Win) - SHARED COOLDOWN
+        -- Only check battles if we didn't just open a case
+        local battleActionTaken = false
+        
+        if State.QuestPlay and not battleActionTaken then
+            local play = getQuestData("Play")
+            if play and play.Remaining > 0 then
+                local cd = randomFloat(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
+                if (now - State.LastBattle) >= cd then
+                    State.LastBattle = now
+                    createBotBattle(string.upper(play.Subject))
+                    battleActionTaken = true
+                end
+            end
+        end
+        
+        if State.QuestWin and not battleActionTaken then
+            local win = getQuestData("Win")
+            if win and win.Remaining > 0 then
+                local cd = randomFloat(Config.Cooldown.BattleMin, Config.Cooldown.BattleMax)
+                if (now - State.LastBattle) >= cd then
+                    State.LastBattle = now
+                    createBotBattle("CLASSIC")
+                    battleActionTaken = true
+                end
+            end
+        end
+        
+        if battleActionTaken then continue end
+        
+        -- Priority 7: Quest Openings
+        if State.QuestOpen then
+            local open = getQuestData("Open")
+            if open and open.Remaining > 0 then
+                local qty = math.min(5, open.Remaining)
+                if openCase(open.Subject, false, qty, false) then continue end
+            end
+        end
+        
+        -- Priority 8: Selected Case (Filler)
+        if State.OpenCase and State.SelectedCase then
+            openCase(State.SelectedCase, false, State.CaseQuantity, State.WildMode)
+        end
     end
 end)
 
--- Quest label update (3s interval - optimized for 10 FPS)
+-- UI Update Loop (Lower frequency is fine)
 task.spawn(function()
     while true do
         updateQuestLabels()
-        task.wait(3)
+        task.wait(3.0)
     end
 end)
 
@@ -864,5 +910,4 @@ end)
 --------------------------------------------------------------------------------
 
 if State.LevelCases then updateLevelCooldowns() end
-task.spawn(claimAllIndex)
 initMeteor()
