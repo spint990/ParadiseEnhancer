@@ -101,6 +101,7 @@ local Config = {
         AWP_IonCharge                      = true,
         Karambit_Intervention         = true,
         NomadKnife_DivineDeparture    = true,
+        MotoGloves_Utopia                = true,
     },
 }
 
