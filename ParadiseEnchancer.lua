@@ -509,9 +509,9 @@ local function walkToMeteor(targetPos)
             local dist = (Vector3.new(root.Position.X, target.Y, root.Position.Z) - target).Magnitude
             if dist <= 5 then break end
             
-            -- Check if stuck
+            -- Check if stuck (Enhanced)
             local moved = (root.Position - lastPos).Magnitude
-            if moved < 1 then
+            if moved < 2 then
                 stuckCount = stuckCount + 1
                 if stuckCount >= 2 then
                     hum.Jump = true
@@ -520,6 +520,8 @@ local function walkToMeteor(targetPos)
             else
                 stuckCount = 0
             end
+            
+
             lastPos = root.Position
             
             hum:MoveTo(target)
