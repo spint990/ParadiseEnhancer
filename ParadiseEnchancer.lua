@@ -53,8 +53,6 @@ local Remote = {
     AddBot        = Remotes:WaitForChild("AddBot"),
     StartBattle   = Remotes:WaitForChild("StartBattle"),
     Sell          = Remotes:WaitForChild("Sell"),
-    Exchange      = Remotes:WaitForChild("ExchangeEvent"),
-    ClaimIndex    = Remotes:WaitForChild("ClaimCategoryIndex"),
 }
 
 local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
@@ -68,7 +66,6 @@ local UI = {
 }
 -- Initialize sub-references safely
 UI.Inventory = UI.Windows:WaitForChild("Inventory")
-UI.Index     = UI.Windows:WaitForChild("Index")
 
 -- Suppress battle event callbacks to avoid client-side clutter
 Remote.StartBattle.OnClientEvent:Connect(function() end)
@@ -145,7 +142,6 @@ local State = {
 
 local Cache = {
     GiftPlaytimes   = {},
-    IndexCategories = {},
     Cases           = {},
 }
 
@@ -156,18 +152,6 @@ for i = 1, 9 do
     Cache.GiftPlaytimes[id] = val and val.Value or 0
 end
 
--- Init Index Categories (Sorted)
-do
-    local categories = UI.Index.Categories:GetChildren()
-    table.sort(categories, function(a, b)
-        return (tonumber(a.Name) or 0) < (tonumber(b.Name) or 0)
-    end)
-    for _, child in ipairs(categories) do
-        if child:IsA("StringValue") and child.Value ~= "" then
-            table.insert(Cache.IndexCategories, child.Value)
-        end
-    end
-end
 
 -- Init Cases List
 do
@@ -394,12 +378,6 @@ end
 -- ECONOMY
 --------------------------------------------------------------------------------
 
-local function claimAllIndex()
-    for _, cat in ipairs(Cache.IndexCategories) do
-        Remote.ClaimIndex:FireServer(cat)
-        randomDelay(1.5, 2.5) -- Human-like spacing
-    end
-end
 
 local function refreshInventoryUI()
     local win = PlayerGui:FindFirstChild("CurrentWindow")
@@ -412,14 +390,7 @@ local function refreshInventoryUI()
 end
 
 local function sellUnlocked()
-    -- Exchange and claim
-    Remote.Exchange:FireServer("Exchange")
-    task.wait(2.0)
-    Remote.Exchange:FireServer("Claim")
-    task.wait(0.2)
     
-    claimAllIndex()
-    task.wait(0.2)
     refreshInventoryUI()
     task.wait(0.5)
     
