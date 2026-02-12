@@ -338,6 +338,9 @@ function BattleManager:CreateBot(mode)
     if id then
         Remote.AddBot:FireServer(id, Player)
     end
+
+    UI_Refs.Main.Enabled = true
+    UI_Refs.Windows.Enabled = true
     
     -- Occupy state for duration of logic
     task.delay(Utils.RandomFloat(4.5, 6.5), function()
