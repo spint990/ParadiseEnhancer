@@ -90,7 +90,7 @@ local Config = {
     -- Settings
     SelectedCase      = "DivineCase",
     CaseQuantity      = 5,
-    WildMode          = true,
+    WildMode          = false,
     
     -- Whitelist (Items to keep)
     Whitelist = {
