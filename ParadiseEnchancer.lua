@@ -237,8 +237,12 @@ function CaseManager:Open(caseId, isGift, qty, useWild)
     
     if isGift then
         result = Remote.OpenCase:InvokeServer(caseId, -1, false)
+         UI_Refs.Main.Enabled = true
+        UI_Refs.Windows.Enabled = true
     else
         result = Remote.OpenCase:InvokeServer(caseId, qty or 1, false, useWild or false)
+         UI_Refs.Main.Enabled = true
+        UI_Refs.Windows.Enabled = true
     end
     
     if type(result) == "table" and next(result) then
