@@ -53,8 +53,8 @@ local Config = {
     AutoQuestPlay     = true,
     AutoQuestWin      = true,
     AutoLevelCases    = true,
-    AutoGalaxyCase    = true,  -- >50 Tickets
-    AutoKatowice      = true,  -- >140k Money
+    AutoTicketCase    = true,  -- >50 Tickets
+    AutoLightCase     = true,  -- >140k Money
     AutoSell          = true,
     AutoMeteor        = true,
     RejoinOnGift9     = true,
@@ -163,17 +163,22 @@ local function UpdateLevelCooldowns()
     for _, caseId in ipairs(levelCases) do
         local data = CasesModule[caseId]
         if data and xp >= (data.XPRequirement or 0) then            
-            local cooldown = Remote_CheckCooldown:InvokeServer(caseId)
+            local remaining = Remote_CheckCooldown:InvokeServer(caseId)
 
-            if cooldown and cooldown < State.NextLevelCase then
-                State.NextLevelCase = cooldown
-                State.NextLevelCaseId = caseId
-            end 
+            if remaining then
+                local cooldownEnd = os.time() + remaining
+                if cooldownEnd < State.NextLevelCase then
+                    State.NextLevelCase = cooldownEnd
+                    State.NextLevelCaseId = caseId
+                end
+            end
         end
     end
 end
 -- Initial check
 task.spawn(UpdateLevelCooldowns)
+
+
 
 
 local function OpenCase(caseId, isGift, qty, useWild)
@@ -435,10 +440,10 @@ task.spawn(function()
         end
 
         -- 4. High Value Logic
-        if Config.AutoKatowice and State.CaseReady and GetBalance() > 140000 then
+        if Config.AutoLightCase and State.CaseReady and GetBalance() > 140000 then
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
-        if Config.AutoGalaxyCase and GetTickets() >= 50 then
+        if Config.AutoTicketCase and GetTickets() >= 50 then
             if OpenCase("DivineCase", false, 5, false) then continue end
         end
 
@@ -584,8 +589,8 @@ TabAuto:CreateToggle({ Name = "Claim Gifts", CurrentValue = Config.AutoClaimGift
 TabAuto:CreateToggle({ Name = "Rejoin on Gift 9", CurrentValue = Config.RejoinOnGift9, Flag = "RejoinOnGift9", Callback = function(v) Config.RejoinOnGift9 = v end })
 TabAuto:CreateSection("Advanced Cases")
 TabAuto:CreateToggle({ Name = "Auto Level Cases", CurrentValue = Config.AutoLevelCases, Flag = "AutoLevelCases", Callback = function(v) Config.AutoLevelCases = v if v then UpdateLevelCooldowns() end end })
-TabAuto:CreateToggle({ Name = "Auto Galaxy (>50 Tickets)", CurrentValue = Config.AutoGalaxyCase, Flag = "AutoGalaxyCase", Callback = function(v) Config.AutoGalaxyCase = v end })
-TabAuto:CreateToggle({ Name = "Auto Katowice (>140k Money)", CurrentValue = Config.AutoKatowice, Flag = "AutoKatowice", Callback = function(v) Config.AutoKatowice = v end })
+TabAuto:CreateToggle({ Name = "Auto Ticket Case (>50 Tickets)", CurrentValue = Config.AutoTicketCase, Flag = "AutoTicketCase", Callback = function(v) Config.AutoTicketCase = v end })
+TabAuto:CreateToggle({ Name = "Auto Light Case (>140k Money)", CurrentValue = Config.AutoLightCase, Flag = "AutoLightCase", Callback = function(v) Config.AutoLightCase = v end })
 TabAuto:CreateSection("Events")
 TabAuto:CreateToggle({ Name = "Meteor Walk", CurrentValue = Config.AutoMeteor, Flag = "AutoMeteor", Callback = function(v) Config.AutoMeteor = v if not v then StopMeteorWalk() end end })
 
