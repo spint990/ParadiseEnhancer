@@ -33,11 +33,7 @@ local Remote_AddBot        = Remotes:WaitForChild("AddBot")
 local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
 local Remote_Sell          = Remotes:WaitForChild("Sell")
 
-local Rayfield
-repeat
-    pcall(function() Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))() end)
-    if not Rayfield then task.wait(1) end
-until Rayfield
+
 
 local Modules     = ReplicatedStorage:WaitForChild("Modules")
 local CasesModule = require(Modules:WaitForChild("Cases"))
@@ -458,7 +454,7 @@ task.spawn(function()
         -- 5. Quest Battles
         local didBattle = false
         if Config.AutoQuestPlay or Config.AutoQuestWin then
-             if true then
+
                  local qPlay = Config.AutoQuestPlay and GetQuest("Play")
                  if qPlay and qPlay.Remaining > 0 then
                      State.LastBattle = now
@@ -472,7 +468,7 @@ task.spawn(function()
                          didBattle = true
                      end
                  end
-             end
+
         end
         if didBattle then continue end
 
@@ -494,7 +490,18 @@ end)
 
 
 --------------------------------------------------------------------------------
--- RAYFIELD UI
+-- RAYFIELD UI LOAD
+--------------------------------------------------------------------------------
+local Rayfield
+repeat
+    pcall(function() 
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield?v='..tostring(math.random(1, 1000000))))() 
+    end)
+    if not Rayfield then task.wait(1) end
+until Rayfield
+
+--------------------------------------------------------------------------------
+-- RAYFIELD UI WINDOW
 --------------------------------------------------------------------------------
 
 local Window = Rayfield:CreateWindow({
