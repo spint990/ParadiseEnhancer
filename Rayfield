@@ -3539,7 +3539,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 	if not success then warn('Rayfield had an issue creating settings.') end
 
-	RayfieldLibrary:SetVisibility(false)
 
 	return Window
 end
@@ -3982,4 +3981,5 @@ task.delay(4, function()
 end)
 
 return RayfieldLibrary
+
 
