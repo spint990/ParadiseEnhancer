@@ -91,7 +91,7 @@ local State = {
 }
 
 local Cache_Cases = {} -- Stores case info for dropdown
-local Cache_FailedTime = {} -- Stores cooldowns for failed cases
+
 
 --------------------------------------------------------------------------------
 -- FUNCTIONS (DIRECT)
@@ -146,17 +146,7 @@ end
 RunService.Heartbeat:Connect(SuppressAnimation)
 
 
-local function RefreshGameUI()
-    -- Fast UI switch to force game update
-    local win = PlayerGui:FindFirstChild("CurrentWindow")
-    if not win then return end
-    if win.Value == "Cases" then return end
-    
-    local prev = win.Value
-    win.Value = "Cases"
-    task.wait()
-    win.Value = prev
-end
+
 
 local function UpdateLevelCooldowns()
     State.NextLevelCase = 9e9
@@ -173,11 +163,7 @@ local function UpdateLevelCooldowns()
 
     for _, caseId in ipairs(levelCases) do
         local data = CasesModule[caseId]
-        if data and xp >= (data.XPRequirement or 0) then
-            if Cache_FailedTime[caseId] and (timeNow - Cache_FailedTime[caseId]) < 60 then
-                continue 
-            end
-            
+        if data and xp >= (data.XPRequirement or 0) then            
             local cooldown = Remote_CheckCooldown:InvokeServer(caseId)
 
             if cooldown and cooldown < State.NextLevelCase then
@@ -193,8 +179,6 @@ task.spawn(UpdateLevelCooldowns)
 
 local function OpenCase(caseId, isGift, qty, useWild)
     local key = isGift and "Gift" or caseId
-    if Cache_FailedTime[key] and (os.time() - Cache_FailedTime[key]) < 60 then return false end
-
     State.CaseReady = false
     State.IsBusy = true
 
@@ -209,10 +193,7 @@ local function OpenCase(caseId, isGift, qty, useWild)
     
     local success = (type(result) == "table" and next(result))
     
-    if success then
-        RefreshGameUI()
-    else
-        Cache_FailedTime[key] = os.time()
+    if not success then
         if caseId:find("^LEVEL") then
             task.spawn(UpdateLevelCooldowns)
         end
