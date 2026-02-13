@@ -423,7 +423,7 @@ task.spawn(function()
             if giftId then
                 if OpenCase(giftId, true) then
                     if giftId == "Gift9" and Config.RejoinOnGift9 then
-                        task.wait(math.random(2.5, 4.5))
+                        task.wait(math.random(1, 3))
                         Rejoin()
                     end
                     continue
