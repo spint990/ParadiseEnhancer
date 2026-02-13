@@ -15,32 +15,32 @@ local TeleportService   = game:GetService("TeleportService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local Player       = Players.LocalPlayer
-local PlayerGui    = Player.PlayerGui
-local PlayerData   = Player.PlayerData
-local Currencies   = PlayerData.Currencies
-local Quests       = PlayerData.Quests
-local ClaimedGifts = Player.ClaimedGifts
-local Playtime     = Player.Playtime
+local PlayerGui    = Player:WaitForChild("PlayerGui")
+local PlayerData   = Player:WaitForChild("PlayerData", 9e9) -- Infinite wait logic but with timeout fallback internally
+local Currencies   = PlayerData:WaitForChild("Currencies")
+local Quests       = PlayerData:WaitForChild("Quests")
+local ClaimedGifts = Player:WaitForChild("ClaimedGifts")
+local Playtime     = Player:WaitForChild("Playtime")
 
-local Remotes = ReplicatedStorage.Remotes
-local Remote_OpenCase      = Remotes.OpenCase
-local Remote_CreateBattle  = Remotes.CreateBattle
-local Remote_CheckCooldown = Remotes.CheckCooldown
-local Remote_AddBot        = Remotes.AddBot
-local Remote_StartBattle   = Remotes.StartBattle
-local Remote_Sell          = Remotes.Sell
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local Remote_OpenCase      = Remotes:WaitForChild("OpenCase")
+local Remote_CreateBattle  = Remotes:WaitForChild("CreateBattle")
+local Remote_CheckCooldown = Remotes:WaitForChild("CheckCooldown")
+local Remote_AddBot        = Remotes:WaitForChild("AddBot")
+local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
+local Remote_Sell          = Remotes:WaitForChild("Sell")
 
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
-local Modules     = ReplicatedStorage.Modules
-local CasesModule = require(Modules.Cases)
-local GiftsFolder = ReplicatedStorage.Gifts
-local WildPrices  = ReplicatedStorage.Misc.WildPrices
+local Rayfield = assert(loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield')), "Rayfield Load Failed")()
+local Modules     = ReplicatedStorage:WaitForChild("Modules")
+local CasesModule = require(Modules:WaitForChild("Cases"))
+local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
+local WildPrices  = ReplicatedStorage:WaitForChild("Misc"):WaitForChild("WildPrices")
 
-local UI_Main          = PlayerGui.Main
-local UI_Windows       = PlayerGui.Windows
-local UI_OpenAnimation = PlayerGui.OpenAnimation
-local UI_Battle        = PlayerGui.Battle
-local UI_Inventory     = UI_Windows.Inventory
+local UI_Main          = PlayerGui:WaitForChild("Main")
+local UI_Windows       = PlayerGui:WaitForChild("Windows")
+local UI_OpenAnimation = PlayerGui:WaitForChild("OpenAnimation")
+local UI_Battle        = PlayerGui:WaitForChild("Battle")
+local UI_Inventory     = UI_Windows:WaitForChild("Inventory")
 
 --------------------------------------------------------------------------------
 -- CONFIGURATION
@@ -617,3 +617,4 @@ TabAuto:CreateSection("Events")
 TabAuto:CreateToggle({ Name = "Meteor Walk", CurrentValue = Config.AutoMeteor, Flag = "AutoMeteor", Callback = function(v) Config.AutoMeteor = v if not v then StopMeteorWalk() end end })
 
 RefreshDropdown()
+print("Paradise Enhancer Loaded!")
