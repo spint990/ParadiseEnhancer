@@ -223,6 +223,7 @@ local function CreateBattle(mode)
     if State.IsBusy then return end
     State.IsBusy = true
     
+    mode = string.upper(mode)
     local id = Remote_CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
 
     task.wait(math.random() * 0.8 + 1.2)
