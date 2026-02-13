@@ -30,7 +30,17 @@ local Remote_AddBot        = Remotes:WaitForChild("AddBot")
 local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
 local Remote_Sell          = Remotes:WaitForChild("Sell")
 
-local Rayfield = assert(loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield')), "Rayfield Load Failed")()
+local Rayfield
+local success, result = pcall(function()
+    return loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
+end)
+
+if success then
+    Rayfield = result
+else
+    warn("RAYFIELD CRASHED:", result)
+    return -- Stop execution if UI fails
+end
 local Modules     = ReplicatedStorage:WaitForChild("Modules")
 local CasesModule = require(Modules:WaitForChild("Cases"))
 local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
@@ -108,6 +118,7 @@ local function FormatPrice(price, currency)
     return (currency == "Tickets" and (price.." GINGERBREAD") or ("$"..price))
 end
 
+print("Loading Enhancer...")
 local function GetWildPrice(caseId)
     local obj = WildPrices:FindFirstChild(caseId)
     if obj then return obj.Value end
@@ -115,9 +126,10 @@ local function GetWildPrice(caseId)
     return data and data.Price or 0
 end
 
+print("Caching Cases...")
 -- Populate Cache
 for caseId, data in pairs(CasesModule) do
-    if not data.AdminOnly and not caseId:find("^LEVEL") then
+    if type(data) == "table" and not data.AdminOnly and not caseId:find("^LEVEL") then
         table.insert(Cache_Cases, {
             Id       = caseId,
             Name     = data.Name or caseId,
@@ -126,11 +138,13 @@ for caseId, data in pairs(CasesModule) do
         })
     end
 end
+print("Sorting Cases...")
 table.sort(Cache_Cases, function(a, b)
     if a.Currency == "Tickets" and b.Currency ~= "Tickets" then return true end
     if a.Currency ~= "Tickets" and b.Currency == "Tickets" then return false end
     return a.Price < b.Price
 end)
+print("Cache Ready!")
 
 
 local function SuppressAnimation()
