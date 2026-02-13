@@ -438,7 +438,7 @@ task.spawn(function()
         -- 3. Level Cases
         if Config.AutoLevelCases and State.NextLevelCaseId and now >= State.NextLevelCase then
            if OpenCase(State.NextLevelCaseId, false, 1) then
-               task.delay(1.5, UpdateLevelCooldowns)
+               task.delay(1, UpdateLevelCooldowns)
                continue
            end
         end
