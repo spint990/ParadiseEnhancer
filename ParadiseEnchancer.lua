@@ -152,7 +152,6 @@ local function UpdateLevelCooldowns()
     State.NextLevelCase = 9e9
     State.NextLevelCaseId = nil
     
-    if State.IsBusy then return end
     local xp = GetXP()
     
     local timeNow = os.time()
@@ -339,11 +338,7 @@ local function InitMeteor()
     
     temp.ChildRemoved:Connect(function(child)
         if child.Name == "MeteorHitHitbox" then
-            task.delay(0.5, function()
-                if not temp:FindFirstChild("MeteorHitHitbox") then
-                    StopMeteorWalk()
-                end 
-            end)
+            StopMeteorWalk()
         end
     end)
 end
@@ -422,10 +417,6 @@ task.spawn(function()
             
             if giftId then
                 if OpenCase(giftId, true) then
-                    task.delay(1, function()
-                        local g = ClaimedGifts:FindFirstChild(giftId)
-                        if g then g.Value = true end
-                    end)
                     if giftId == "Gift9" and Config.RejoinOnGift9 then
                         task.wait(math.random(2.5, 4.5))
                         Rejoin()
