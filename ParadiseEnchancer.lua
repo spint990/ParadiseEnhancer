@@ -200,7 +200,7 @@ local function OpenCase(caseId, isGift, qty, useWild)
     end
 
     -- Cooldown reset
-    task.delay(math.random(8, 12), function()
+    task.delay(math.random(8, 10), function()
         State.CaseReady = true
         State.IsBusy = false
     end)
