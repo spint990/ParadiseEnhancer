@@ -15,42 +15,32 @@ local TeleportService   = game:GetService("TeleportService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local Player       = Players.LocalPlayer
-local PlayerGui    = Player:WaitForChild("PlayerGui")
-local PlayerData   = Player:WaitForChild("PlayerData", 9e9) -- Infinite wait logic but with timeout fallback internally
-local Currencies   = PlayerData:WaitForChild("Currencies")
-local Quests       = PlayerData:WaitForChild("Quests")
-local ClaimedGifts = Player:WaitForChild("ClaimedGifts")
-local Playtime     = Player:WaitForChild("Playtime")
+local PlayerGui    = Player.PlayerGui
+local PlayerData   = Player.PlayerData
+local Currencies   = PlayerData.Currencies
+local Quests       = PlayerData.Quests
+local ClaimedGifts = Player.ClaimedGifts
+local Playtime     = Player.Playtime
 
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local Remote_OpenCase      = Remotes:WaitForChild("OpenCase")
-local Remote_CreateBattle  = Remotes:WaitForChild("CreateBattle")
-local Remote_CheckCooldown = Remotes:WaitForChild("CheckCooldown")
-local Remote_AddBot        = Remotes:WaitForChild("AddBot")
-local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
-local Remote_Sell          = Remotes:WaitForChild("Sell")
+local Remotes = ReplicatedStorage.Remotes
+local Remote_OpenCase      = Remotes.OpenCase
+local Remote_CreateBattle  = Remotes.CreateBattle
+local Remote_CheckCooldown = Remotes.CheckCooldown
+local Remote_AddBot        = Remotes.AddBot
+local Remote_StartBattle   = Remotes.StartBattle
+local Remote_Sell          = Remotes.Sell
 
-local Rayfield
-local success, result = pcall(function()
-    return loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
-end)
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
+local Modules     = ReplicatedStorage.Modules
+local CasesModule = require(Modules.Cases)
+local GiftsFolder = ReplicatedStorage.Gifts
+local WildPrices  = ReplicatedStorage.Misc.WildPrices
 
-if success then
-    Rayfield = result
-else
-    warn("RAYFIELD CRASHED:", result)
-    return -- Stop execution if UI fails
-end
-local Modules     = ReplicatedStorage:WaitForChild("Modules")
-local CasesModule = require(Modules:WaitForChild("Cases"))
-local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
-local WildPrices  = ReplicatedStorage:WaitForChild("Misc"):WaitForChild("WildPrices")
-
-local UI_Main          = PlayerGui:WaitForChild("Main")
-local UI_Windows       = PlayerGui:WaitForChild("Windows")
-local UI_OpenAnimation = PlayerGui:WaitForChild("OpenAnimation")
-local UI_Battle        = PlayerGui:WaitForChild("Battle")
-local UI_Inventory     = UI_Windows:WaitForChild("Inventory")
+local UI_Main          = PlayerGui.Main
+local UI_Windows       = PlayerGui.Windows
+local UI_OpenAnimation = PlayerGui.OpenAnimation
+local UI_Battle        = PlayerGui.Battle
+local UI_Inventory     = UI_Windows.Inventory
 
 --------------------------------------------------------------------------------
 -- CONFIGURATION
@@ -118,7 +108,6 @@ local function FormatPrice(price, currency)
     return (currency == "Tickets" and (price.." GINGERBREAD") or ("$"..price))
 end
 
-print("Loading Enhancer...")
 local function GetWildPrice(caseId)
     local obj = WildPrices:FindFirstChild(caseId)
     if obj then return obj.Value end
@@ -126,10 +115,9 @@ local function GetWildPrice(caseId)
     return data and data.Price or 0
 end
 
-print("Caching Cases...")
 -- Populate Cache
 for caseId, data in pairs(CasesModule) do
-    if type(data) == "table" and not data.AdminOnly and not caseId:find("^LEVEL") then
+    if not data.AdminOnly and not caseId:find("^LEVEL") then
         table.insert(Cache_Cases, {
             Id       = caseId,
             Name     = data.Name or caseId,
@@ -138,13 +126,11 @@ for caseId, data in pairs(CasesModule) do
         })
     end
 end
-print("Sorting Cases...")
 table.sort(Cache_Cases, function(a, b)
     if a.Currency == "Tickets" and b.Currency ~= "Tickets" then return true end
     if a.Currency ~= "Tickets" and b.Currency == "Tickets" then return false end
     return a.Price < b.Price
 end)
-print("Cache Ready!")
 
 
 local function SuppressAnimation()
@@ -631,4 +617,3 @@ TabAuto:CreateSection("Events")
 TabAuto:CreateToggle({ Name = "Meteor Walk", CurrentValue = Config.AutoMeteor, Flag = "AutoMeteor", Callback = function(v) Config.AutoMeteor = v if not v then StopMeteorWalk() end end })
 
 RefreshDropdown()
-print("Paradise Enhancer Loaded!")
