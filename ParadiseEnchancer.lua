@@ -8,14 +8,19 @@
 --------------------------------------------------------------------------------
 -- SERVICES & ARGS
 --------------------------------------------------------------------------------
+if not game:IsLoaded() then game.Loaded:Wait() end
+
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 local TeleportService   = game:GetService("TeleportService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
+if not Players.LocalPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+end
 local Player       = Players.LocalPlayer
-local PlayerGui    = Player.PlayerGui
+local PlayerGui    = Player:WaitForChild("PlayerGui")
 local PlayerData   = Player.PlayerData
 local Currencies   = PlayerData.Currencies
 local Quests       = PlayerData.Quests
@@ -30,7 +35,11 @@ local Remote_AddBot        = Remotes.AddBot
 local Remote_StartBattle   = Remotes.StartBattle
 local Remote_Sell          = Remotes.Sell
 
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))()
+local Rayfield
+repeat
+    pcall(function() Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield'))() end)
+    if not Rayfield then task.wait(1) end
+until Rayfield
 local Modules     = ReplicatedStorage.Modules
 local CasesModule = require(Modules.Cases)
 local GiftsFolder = ReplicatedStorage.Gifts
