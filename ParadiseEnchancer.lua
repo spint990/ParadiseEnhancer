@@ -160,8 +160,8 @@ local function UpdateLevelCooldowns()
     
     local timeNow = os.time()
     local levelCases = {
-        "LEVEL10", "LEVEL20", "LEVEL30", "LEVEL40", "LEVEL50", "LEVEL60",
-        "LEVEL70", "LEVEL80", "LEVEL90", "LEVELS100", "LEVELS110", "LEVELS120"
+        "LEVELS120", "LEVELS110", "LEVELS100", "LEVEL90", "LEVEL80", "LEVEL70",
+        "LEVEL60", "LEVEL50", "LEVEL40", "LEVEL30", "LEVEL20", "LEVEL10"
     }
 
     for _, caseId in ipairs(levelCases) do
@@ -170,11 +170,23 @@ local function UpdateLevelCooldowns()
             local remaining = Remote_CheckCooldown:InvokeServer(caseId)
 
             if remaining then
-                local cooldownEnd = os.time() + remaining
+                -- Si remaining = timestamp (ex: 17xxxxxx), alors os.time() + remaining est faux.
+                -- Si CheckCooldown retourne un timestamp absolu :
+                local cooldownEnd
+                if remaining > 1000000000 then -- C'est probablement un timestamp
+                     cooldownEnd = remaining
+                else -- C'est probablement une durée en secondes
+                     cooldownEnd = os.time() + remaining
+                end
+                
                 if cooldownEnd < State.NextLevelCase then
                     State.NextLevelCase = cooldownEnd
                     State.NextLevelCaseId = caseId
                 end
+            elseif remaining == nil then
+                 -- Si nil, c'est probablement prêt (pas de cooldown)
+                 State.NextLevelCase = os.time()
+                 State.NextLevelCaseId = caseId
             end
         end
     end
