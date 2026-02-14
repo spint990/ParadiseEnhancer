@@ -179,14 +179,18 @@ local function UpdateLevelCooldowns()
                      cooldownEnd = os.time() + remaining
                 end
                 
-                if cooldownEnd < State.NextLevelCase then
+                 if cooldownEnd < State.NextLevelCase then
                     State.NextLevelCase = cooldownEnd
                     State.NextLevelCaseId = caseId
+                    print("[DEBUG] New Next Level Case:", caseId, "at", cooldownEnd, "(Remaining:", remaining, ")")
+                else
+                    print("[DEBUG] Case", caseId, "cooldown", remaining, "is later than current best.")
                 end
             elseif remaining == nil then
                  -- Si nil, c'est probablement prêt (pas de cooldown)
                  State.NextLevelCase = os.time()
                  State.NextLevelCaseId = caseId
+                 print("[DEBUG] Case", caseId, "READY (nil remaining)")
             end
         end
     end
@@ -214,11 +218,15 @@ local function OpenCase(caseId, isGift, qty, useWild)
     local success = (type(result) == "table" and next(result))
     
     if not success then
+        print("[DEBUG] Failed to open:", caseId)
         if caseId:find("^LEVEL") then
+            print("[DEBUG] Resetting Level State due to failure for:", caseId)
             State.NextLevelCase = 9e9
             State.NextLevelCaseId = nil
             task.spawn(UpdateLevelCooldowns)
         end
+    else
+        print("[DEBUG] Successfully opened:", caseId)
     end
 
     -- Cooldown reset
@@ -451,6 +459,7 @@ task.spawn(function()
 
         -- 3. Level Cases
         if Config.AutoLevelCases and State.NextLevelCaseId and now >= State.NextLevelCase then
+           print("[DEBUG] Attempting Level Case:", State.NextLevelCaseId)
            if OpenCase(State.NextLevelCaseId, false, 1) then
                task.delay(1, UpdateLevelCooldowns)
                continue
