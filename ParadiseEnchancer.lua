@@ -215,6 +215,8 @@ local function OpenCase(caseId, isGift, qty, useWild)
     
     if not success then
         if caseId:find("^LEVEL") then
+            State.NextLevelCase = 9e9
+            State.NextLevelCaseId = nil
             task.spawn(UpdateLevelCooldowns)
         end
     end
