@@ -92,6 +92,7 @@ local State = {
     NextLevelCase = 9e9, -- math.huge
     NextLevelCaseId = nil,
     LastBattle = 0,
+    LevelFailures = {},
 }
 
 local Cache_Cases = {} -- Stores case info for dropdown
@@ -156,41 +157,43 @@ local function UpdateLevelCooldowns()
     State.NextLevelCase = 9e9
     State.NextLevelCaseId = nil
     
+    local now = os.time()
     local xp = GetXP()
-    
-    local timeNow = os.time()
     local levelCases = {
         "LEVELS120", "LEVELS110", "LEVELS100", "LEVEL90", "LEVEL80", "LEVEL70",
         "LEVEL60", "LEVEL50", "LEVEL40", "LEVEL30", "LEVEL20", "LEVEL10"
     }
 
     for _, caseId in ipairs(levelCases) do
+        -- Skip recently failed cases (15s cooldown on failures)
+        if State.LevelFailures[caseId] and (now - State.LevelFailures[caseId] < 15) then
+            -- print("[DEBUG] Skipping failed case:", caseId)
+            continue
+        end
+
         local data = CasesModule[caseId]
         if data and xp >= (data.XPRequirement or 0) then            
             local remaining = Remote_CheckCooldown:InvokeServer(caseId)
+            local cooldownEnd
 
             if remaining then
-                -- Si remaining = timestamp (ex: 17xxxxxx), alors os.time() + remaining est faux.
-                -- Si CheckCooldown retourne un timestamp absolu :
-                local cooldownEnd
-                if remaining > 1000000000 then -- C'est probablement un timestamp
+                if type(remaining) == "number" and remaining > 1000000000 then
                      cooldownEnd = remaining
-                else -- C'est probablement une durée en secondes
-                     cooldownEnd = os.time() + remaining
-                end
-                
-                 if cooldownEnd < State.NextLevelCase then
-                    State.NextLevelCase = cooldownEnd
-                    State.NextLevelCaseId = caseId
-                    print("[DEBUG] New Next Level Case:", caseId, "at", cooldownEnd, "(Remaining:", remaining, ")")
+                elseif type(remaining) == "number" then
+                     cooldownEnd = now + remaining
                 else
-                    print("[DEBUG] Case", caseId, "cooldown", remaining, "is later than current best.")
+                     -- Fallback for non-number truthy value? Assume wait.
+                     cooldownEnd = now + 999
                 end
-            elseif remaining == nil then
-                 -- Si nil, c'est probablement prêt (pas de cooldown)
-                 State.NextLevelCase = os.time()
-                 State.NextLevelCaseId = caseId
-                 print("[DEBUG] Case", caseId, "READY (nil remaining)")
+            else
+                 -- ready
+                 cooldownEnd = now
+            end
+
+            -- Update optimal case
+            if cooldownEnd < State.NextLevelCase then
+                State.NextLevelCase = cooldownEnd
+                State.NextLevelCaseId = caseId
             end
         end
     end
@@ -218,15 +221,13 @@ local function OpenCase(caseId, isGift, qty, useWild)
     local success = (type(result) == "table" and next(result))
     
     if not success then
-        print("[DEBUG] Failed to open:", caseId)
         if caseId:find("^LEVEL") then
-            print("[DEBUG] Resetting Level State due to failure for:", caseId)
+            State.LevelFailures[caseId] = os.time()
+            
             State.NextLevelCase = 9e9
             State.NextLevelCaseId = nil
             task.spawn(UpdateLevelCooldowns)
         end
-    else
-        print("[DEBUG] Successfully opened:", caseId)
     end
 
     -- Cooldown reset
@@ -459,7 +460,6 @@ task.spawn(function()
 
         -- 3. Level Cases
         if Config.AutoLevelCases and State.NextLevelCaseId and now >= State.NextLevelCase then
-           print("[DEBUG] Attempting Level Case:", State.NextLevelCaseId)
            if OpenCase(State.NextLevelCaseId, false, 1) then
                task.delay(1, UpdateLevelCooldowns)
                continue
