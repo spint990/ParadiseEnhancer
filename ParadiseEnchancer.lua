@@ -157,7 +157,7 @@ local function UpdateLevelCooldowns()
     State.NextLevelCase = 9e9
     State.NextLevelCaseId = nil
     
-    local now = os.time()
+    local now = workspace:GetServerTimeNow()
     local xp = GetXP()
     local levelCases = {
         "LEVELS120", "LEVELS110", "LEVELS100", "LEVEL90", "LEVEL80", "LEVEL70",
@@ -222,7 +222,7 @@ local function OpenCase(caseId, isGift, qty, useWild)
     
     if not success then
         if caseId:find("^LEVEL") then
-            State.LevelFailures[caseId] = os.time()
+            State.LevelFailures[caseId] = workspace:GetServerTimeNow()
             
             State.NextLevelCase = 9e9
             State.NextLevelCaseId = nil
@@ -413,7 +413,7 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         if State.IsBusy then continue end
-        local now = os.time()
+        local now = workspace:GetServerTimeNow()
 
         -- Disable Avatar Prompt
         pcall(function() game:GetService("CoreGui").AvatarEditorPromptsApp.Children.PromptFrame:Destroy() end)
