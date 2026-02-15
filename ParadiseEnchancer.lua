@@ -474,7 +474,7 @@ task.spawn(function()
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
         if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("ValentineCase", false, 5, false) then continue end
+            if OpenCase("HolyCase", false, 5, false) then continue end
         end
 
         -- 5. Quest Battles
