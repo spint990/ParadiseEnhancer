@@ -80,6 +80,9 @@ local Whitelist = {
     ["Karambit_Intervention"]              = true,
     ["NomadKnife_DivineDeparture"]         = true,
     ["MotoGloves_Utopia"]                  = true,
+    ["ButterflyKnife_ValentineWrapped"]    = true,
+    ["FAMAS_Diamonds"]                     = true,
+    ["AWP_EvilSon"]                        = true,
 }
 
 --------------------------------------------------------------------------------
@@ -471,7 +474,7 @@ task.spawn(function()
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
         if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("DivineCase", false, 5, false) then continue end
+            if OpenCase("ValentineCase", false, 5, false) then continue end
         end
 
         -- 5. Quest Battles
