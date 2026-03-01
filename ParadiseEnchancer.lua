@@ -62,7 +62,7 @@ local Config = {
     AutoSell          = true,
     AutoMeteor        = true,
     RejoinOnGift9     = true,
-    SelectedCase      = "HAZARDOUS",
+    SelectedCase      = "HazardousCase",
     CaseQuantity      = 5,
     WildMode          = false, 
 }
@@ -475,7 +475,7 @@ task.spawn(function()
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
         if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("HAZARDOUS", false, 5, false) then continue end
+            if OpenCase("HazardousCase", false, 5, false) then continue end
         end
 
         -- 5. Quest Battles
