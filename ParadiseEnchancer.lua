@@ -62,8 +62,7 @@ local Config = {
     AutoSell          = true,
     AutoMeteor        = true,
     RejoinOnGift9     = true,
-    
-    SelectedCase      = "DivineCase",
+    SelectedCase      = "HAZARDOUS",
     CaseQuantity      = 5,
     WildMode          = false, 
 }
@@ -83,6 +82,8 @@ local Whitelist = {
     ["ButterflyKnife_ValentineWrapped"]    = true,
     ["FAMAS_Diamonds"]                     = true,
     ["AWP_EvilSon"]                        = true,
+    ["SSG08_ToxicWaste"] = true,
+    ["HunterKnife_Ammonia"] = true,
 }
 
 --------------------------------------------------------------------------------
@@ -474,7 +475,7 @@ task.spawn(function()
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
         if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("HolyCase", false, 5, false) then continue end
+            if OpenCase("HAZARDOUS", false, 5, false) then continue end
         end
 
         -- 5. Quest Battles
