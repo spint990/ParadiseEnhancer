@@ -62,7 +62,7 @@ local Config = {
     AutoSell          = true,
     AutoMeteor        = true,
     RejoinOnGift9     = true,
-    SelectedCase      = "HazardousCase",
+    SelectedCase      = "DangerCase",
     CaseQuantity      = 5,
     WildMode          = false, 
 }
@@ -84,6 +84,12 @@ local Whitelist = {
     ["AWP_EvilSon"]                        = true,
     ["SSG08_ToxicWaste"] = true,
     ["HunterKnife_Ammonia"] = true,
+    ["ButterflyKnife_RadioactiveActivation"] = true,
+    ["AWP_OozingToxicity"] = true,
+    ["AUG_BlackVoid"] = true,
+    ["AK47_Sweetheart"] = true,
+    ["FalchionKnife_CelestialIntervention"] = true,
+    ["HuntsmanKnife_BiologicalHazard"] = true,
 }
 
 --------------------------------------------------------------------------------
@@ -475,7 +481,7 @@ task.spawn(function()
             if OpenCase("LIGHT", false, 5, true) then continue end
         end
         if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("HazardousCase", false, 5, false) then continue end
+            if OpenCase("DangerCase", false, 5, false) then continue end
         end
 
         -- 5. Quest Battles
