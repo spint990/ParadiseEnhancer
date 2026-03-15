@@ -9,7 +9,7 @@
 -- SERVICES & ARGS
 --------------------------------------------------------------------------------
 if not game:IsLoaded() then game.Loaded:Wait() end
-task.wait(2) -- Ajout sécurité chargement
+task.wait(15) -- Ajout sécurité chargement
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
