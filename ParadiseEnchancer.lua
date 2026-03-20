@@ -284,35 +284,42 @@ local function CreateBattle(mode)
 end
 
 local function SellItems()
-    -- Switch to logic that doesn't rely heavily on UI state if possible, 
-    -- but reading inventory usually requires UI unless we parse remote data.
-    -- We'll just read UI frames as it's reliable enough.
-    
-    local win = PlayerGui:FindFirstChild("CurrentWindow")
-    if win then
-        local prev = win.Value
-        win.Value = "Inventory"
-        task.wait(0.1)
-        win.Value = prev
+    -- First, trigger inventory rendering by setting CurrentWindow to "Inventory"
+    local currentWindow = PlayerGui:FindFirstChild("CurrentWindow")
+    if currentWindow then
+        local prevWindow = currentWindow.Value
+        currentWindow.Value = "Inventory"
+        task.wait(0.3) -- Wait for inventory to render
     end
 
     local toSell = {}
-    local contents = UI_Inventory:FindFirstChild("InventoryFrame")
-    if contents then contents = contents:FindFirstChild("Contents") end
-    
-    if contents then
-        for _, frame in ipairs(contents:GetChildren()) do
-            if frame:IsA("Frame") then
-                local itemId = frame:GetAttribute("ItemId")
-                local locked = frame:GetAttribute("locked")
-                
-                if itemId and not locked and not Whitelist[itemId] then
-                    table.insert(toSell, {
-                        Name     = itemId,
-                        Wear     = frame.Wear.Text,
-                        Stattrak = frame.Stattrak.Visible,
-                        Age      = frame.Age.Value,
-                    })
+    local inventoryFrame = UI_Inventory:FindFirstChild("InventoryFrame")
+    if inventoryFrame then
+        local contents = inventoryFrame:FindFirstChild("Contents")
+        if contents then
+            for _, frame in ipairs(contents:GetChildren()) do
+                if frame:IsA("Frame") then
+                    local itemId = frame:GetAttribute("ItemId")
+                    local locked = frame:GetAttribute("locked")
+                    
+                    -- Check if item is not locked and not in whitelist
+                    if itemId and locked ~= true and not Whitelist[itemId] then
+                        -- Get UUID from attribute "UUIData" (not from a Value object)
+                        local uuid = frame:GetAttribute("UUIData")
+                        local wear = frame:FindFirstChild("Wear")
+                        local stattrak = frame:FindFirstChild("Stattrak")
+                        local age = frame:FindFirstChild("Age")
+                        
+                        if uuid and wear then
+                            table.insert(toSell, {
+                                Name     = itemId,
+                                Wear     = wear.Text,
+                                Stattrak = stattrak and stattrak.Visible or false,
+                                Age      = age and age.Value or 0,
+                                UUID     = uuid,
+                            })
+                        end
+                    end
                 end
             end
         end
@@ -320,7 +327,6 @@ local function SellItems()
     
     if #toSell > 0 then
         Remote_Sell:InvokeServer(toSell)
-
     end
 end
 
