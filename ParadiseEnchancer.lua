@@ -289,7 +289,7 @@ local function SellItems()
     if currentWindow then
         local prevWindow = currentWindow.Value
         currentWindow.Value = "Inventory"
-        task.wait(0.3) -- Wait for inventory to render
+        task.wait(0.1) -- Wait for inventory to render
     end
 
     local toSell = {}
