@@ -534,7 +534,7 @@ end)
 local Rayfield
 repeat
     pcall(function() 
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield?v='..tostring(math.random(1, 1000000))))() 
+        Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield.lua"))()
     end)
     if not Rayfield then task.wait(1) end
 until Rayfield
