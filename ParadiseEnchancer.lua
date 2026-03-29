@@ -22,8 +22,10 @@ local PlayerGui    = Player:WaitForChild("PlayerGui")
 local PlayerData   = Player:WaitForChild("PlayerData")
 local Currencies   = PlayerData:WaitForChild("Currencies")
 local Quests       = PlayerData:WaitForChild("Quests")
+local CalendarQuests = PlayerData:WaitForChild("CalendarQuests")
 local ClaimedGifts = Player:WaitForChild("ClaimedGifts")
 local Playtime     = Player:WaitForChild("Playtime")
+local Inventory    = PlayerData:WaitForChild("Inventory")
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local Remote_OpenCase      = Remotes:WaitForChild("OpenCase")
@@ -32,11 +34,15 @@ local Remote_CheckCooldown = Remotes:WaitForChild("CheckCooldown")
 local Remote_AddBot        = Remotes:WaitForChild("AddBot")
 local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
 local Remote_Sell          = Remotes:WaitForChild("Sell")
+local Remote_CreateMatch   = Remotes:WaitForChild("CreateMatch")
+local Remote_RollDice      = Remotes:WaitForChild("RollDice")
+local Remote_Upgrade       = Remotes:WaitForChild("Upgrade")
 
 
 
 local Modules     = ReplicatedStorage:WaitForChild("Modules")
 local CasesModule = require(Modules:WaitForChild("Cases"))
+local ItemsModule = require(Modules:WaitForChild("Items"))
 local GiftsFolder = ReplicatedStorage:WaitForChild("Gifts")
 local WildPrices  = ReplicatedStorage:WaitForChild("Misc"):WaitForChild("WildPrices")
 
@@ -45,6 +51,8 @@ local UI_Windows       = PlayerGui:WaitForChild("Windows")
 local UI_OpenAnimation = PlayerGui:WaitForChild("OpenAnimation")
 local UI_Battle        = PlayerGui:WaitForChild("Battle")
 local UI_Inventory     = UI_Windows:WaitForChild("Inventory")
+local UI_DiceRoll      = UI_Windows:WaitForChild("DiceRoll")
+local UI_Upgrader      = UI_Windows:WaitForChild("Upgrader")
 
 --------------------------------------------------------------------------------
 -- CONFIGURATION
@@ -62,6 +70,8 @@ local Config = {
     AutoSell          = true,
     AutoMeteor        = true,
     RejoinOnGift9     = true,
+    AutoCalendarQuest = true,
+    AutoUpgrader      = true,
     SelectedCase      = "DangerCase",
     CaseQuantity      = 5,
     WildMode          = false, 
@@ -183,6 +193,7 @@ local function UpdateLevelCooldowns()
 
         local data = CasesModule[caseId]
         if data and xp >= (data.XPRequirement or 0) then            
+            print("[REMOTE] CheckCooldown:InvokeServer(" .. caseId .. ")")
             local remaining = Remote_CheckCooldown:InvokeServer(caseId)
             local cooldownEnd
 
@@ -221,9 +232,11 @@ local function OpenCase(caseId, isGift, qty, useWild)
 
     local result
     if isGift then
+        print("[REMOTE] OpenCase:InvokeServer(" .. caseId .. ", -1, false)")
         result = Remote_OpenCase:InvokeServer(caseId, -1, false)
 
     else
+        print("[REMOTE] OpenCase:InvokeServer(" .. caseId .. ", " .. (qty or 1) .. ", false, " .. tostring(useWild or false) .. ")")
         result = Remote_OpenCase:InvokeServer(caseId, qty or 1, false, useWild or false)
 
     end
@@ -265,11 +278,13 @@ local function CreateBattle(mode)
     State.IsBusy = true
     
     mode = string.upper(mode)
+    print("[REMOTE] CreateBattle:InvokeServer({PERCHANCE}, 2, " .. mode .. ", false)")
     local id = Remote_CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
 
     task.wait(math.random() * 0.8 + 1.2)
 
     if id then
+        print("[REMOTE] AddBot:FireServer(" .. tostring(id) .. ", Player)")
         Remote_AddBot:FireServer(id, Player)
 
     end
@@ -326,6 +341,7 @@ local function SellItems()
     end
     
     if #toSell > 0 then
+        print("[REMOTE] Sell:InvokeServer(" .. #toSell .. " items)")
         Remote_Sell:InvokeServer(toSell)
     end
 end
@@ -406,7 +422,6 @@ local function Rejoin()
 end
 
 local function GetQuest(qType)
-    -- Optimized find
     for _, q in ipairs(Quests:GetChildren()) do
         if q.Value == qType then
             local p = q.Progress.Value
@@ -420,6 +435,151 @@ local function GetQuest(qType)
         end
     end
 end
+
+local function GetCalendarQuests()
+    local quests = {}
+    for i = 1, 5 do
+        local q = CalendarQuests:FindFirstChild(tostring(i))
+        if q then
+            local p = q.Progress.Value
+            local r = q.Requirement.Value
+            table.insert(quests, {
+                Id = i,
+                Type = q.Value,
+                Progress = p,
+                Requirement = r,
+                Subject = q.Subject.Value,
+                Remaining = r - p,
+                Reward = q.Reward.Value
+            })
+        end
+    end
+    return quests
+end
+
+local function PlayDiceRoll()
+    if State.IsBusy then return end
+    State.IsBusy = true
+    
+    print("[REMOTE] CreateMatch:FireServer(Dice Roll, 1)")
+    Remote_CreateMatch:FireServer("Dice Roll", "1")
+    
+       UI_DiceRoll.Visible = false
+    UI_Main.Enabled = true
+    UI_Main.ActionBar.Visible = true
+    UI_Main.Currencies.Visible = true
+    UI_Main.SidePanel.Visible = true
+
+    task.wait(math.random(1.0, 3.0))
+    
+    print("[REMOTE] RollDice:FireServer(1, 3)")
+    Remote_RollDice:FireServer("1", 3)
+    
+    UI_DiceRoll.Visible = false
+    UI_Main.Enabled = true
+    UI_Main.ActionBar.Visible = true
+    UI_Main.Currencies.Visible = true
+    UI_Main.SidePanel.Visible = true
+
+    task.delay(math.random(12, 15), function()
+        State.IsBusy = false
+    end)
+end
+
+local function DoUpgrade()
+    if State.IsBusy then return end
+    State.IsBusy = true
+    
+    local cheapestItem = nil
+    local cheapestPrice = math.huge
+    
+    for _, item in ipairs(Inventory:GetChildren()) do
+        if item:GetAttribute("Locked") == true then continue end
+        if Whitelist[item.Name] then continue end
+        
+        local itemData = ItemsModule[item.Name]
+        if not itemData or not itemData.Wears then continue end
+        
+        local wear = item:GetAttribute("Wear")
+        local stattrak = item:GetAttribute("Stattrak") == true
+        local uuid = item:GetAttribute("UUID")
+        
+        local wearData = itemData.Wears[wear]
+        if not wearData then continue end
+        
+        local price = stattrak and (wearData.StatTrak or wearData.Normal or 0) or (wearData.Normal or 0)
+        
+        if price > 0 and price < cheapestPrice then
+            cheapestPrice = price
+            cheapestItem = {
+                UUID = uuid,
+                Price = price,
+                ItemId = item.Name,
+                Wear = wear,
+                Stattrak = stattrak
+            }
+        end
+    end
+    
+    if not cheapestItem then
+        State.IsBusy = false
+        return false
+    end
+    
+    local targetSkin = {
+        Key = "P250_FacilityDraft",
+        Name = "P250 | Facility Draft",
+        Stattrak = false,
+        Price = 0.01,
+        Wear = "Field-Tested"
+    }
+    
+    local selectedItems = {
+        {
+            Price = cheapestItem.Price,
+            UUID = cheapestItem.UUID
+        }
+    }
+    
+    print("[REMOTE] Upgrade:FireServer(" .. cheapestItem.ItemId .. " -> " .. targetSkin.Key .. ")")
+    Remote_Upgrade:FireServer(selectedItems, targetSkin)
+    
+    task.delay(math.random(6, 8), function()
+        State.IsBusy = false
+    end)
+    
+    return true
+end
+
+local function PrintCalendarQuests()
+    print("=== CALENDAR QUESTS ===")
+    local quests = GetCalendarQuests()
+    if #quests == 0 then
+        print("No calendar quests found")
+        return
+    end
+    for _, q in ipairs(quests) do
+        if q.Remaining > 0 then
+            local desc
+            if q.Type == "Open" then
+                local caseName = CasesModule[q.Subject] and CasesModule[q.Subject].Name or q.Subject
+                desc = string.format("[%d] Open %d %s - Progress: %d/%d", q.Id, q.Requirement, caseName, q.Progress, q.Requirement)
+            elseif q.Type == "Play" then
+                desc = string.format("[%d] Play %d %s battles - Progress: %d/%d", q.Id, q.Requirement, q.Subject, q.Progress, q.Requirement)
+            elseif q.Type == "Win" and q.Subject ~= "" then
+                desc = string.format("[%d] Win %d %s - Progress: %d/%d", q.Id, q.Requirement, q.Subject, q.Progress, q.Requirement)
+            elseif q.Type == "Win" then
+                desc = string.format("[%d] Win %d battles - Progress: %d/%d", q.Id, q.Requirement, q.Progress, q.Requirement)
+            else
+                desc = string.format("[%d] %s %s (Subject: %s) - Progress: %d/%d", q.Id, q.Type, q.Requirement, q.Subject, q.Progress, q.Requirement)
+            end
+            print(desc)
+        end
+    end
+    print("=======================")
+end
+
+PrintCalendarQuests()
 
 --------------------------------------------------------------------------------
 -- MAIN LOOP
@@ -483,14 +643,48 @@ task.spawn(function()
         end
 
         -- 4. High Value Logic
-        if Config.AutoLightCase and State.CaseReady and GetBalance() > 140000 then
-            if OpenCase("LIGHT", false, 5, true) then continue end
-        end
-        if Config.AutoTicketCase and GetTickets() >= 50 then
-            if OpenCase("DangerCase", false, 5, false) then continue end
+        if State.CaseReady and not State.IsBusy then
+            if Config.AutoLightCase and GetBalance() > 140000 then
+                if OpenCase("LIGHT", false, 5, true) then continue end
+            end
+            if Config.AutoTicketCase and GetTickets() >= 50 then
+                if OpenCase("BloodCase", false, 5, false) then continue end
+            end
         end
 
-        -- 5. Quest Battles
+        -- 5. Calendar Quests (Open & Play & Win Dice Roll)
+        if Config.AutoCalendarQuest and State.CaseReady and not State.IsBusy then
+            local calQuests = GetCalendarQuests()
+            local didCalQuest = false
+            for _, cq in ipairs(calQuests) do
+                if cq.Remaining > 0 and not didCalQuest and State.CaseReady then
+                    if cq.Type == "Open" then
+                        local qty = (cq.Remaining > 5) and 5 or cq.Remaining
+                        if OpenCase(cq.Subject, false, qty, false) then
+                            PrintCalendarQuests()
+                            didCalQuest = true
+                        end
+                    elseif cq.Type == "Play" then
+                        State.LastBattle = now
+                        CreateBattle(cq.Subject)
+                        PrintCalendarQuests()
+                        didCalQuest = true
+                    elseif cq.Type == "Win" and cq.Subject == "Dice Roll" then
+                        PlayDiceRoll()
+                        PrintCalendarQuests()
+                        didCalQuest = true
+                    elseif cq.Type == "Win" and cq.Subject == "Upgrader" then
+                        if Config.AutoUpgrader and DoUpgrade() then
+                            PrintCalendarQuests()
+                            didCalQuest = true
+                        end
+                    end
+                end
+            end
+            if didCalQuest then continue end
+        end
+
+        -- 6. Quest Battles
         local didBattle = false
         if Config.AutoQuestPlay or Config.AutoQuestWin then
 
@@ -511,7 +705,7 @@ task.spawn(function()
         end
         if didBattle then continue end
 
-        -- 6. Quest Opening
+        -- 7. Quest Opening
         if Config.AutoQuestOpen then
             local q = GetQuest("Open")
             if q and q.Remaining > 0 then
@@ -520,7 +714,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. Selected Case
+        -- 8. Selected Case
         if Config.AutoOpenCase and Config.SelectedCase then
             OpenCase(Config.SelectedCase, false, Config.CaseQuantity, Config.WildMode)
         end
@@ -534,7 +728,7 @@ end)
 local Rayfield
 repeat
     pcall(function() 
-        Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield.lua"))()
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/spint990/ParadiseEnhancer/refs/heads/main/Rayfield?v='..tostring(math.random(1, 1000000))))() 
     end)
     if not Rayfield then task.wait(1) end
 until Rayfield
@@ -621,10 +815,14 @@ TabQuest:CreateSection("Quest Automation")
 TabQuest:CreateToggle({ Name = "Auto Quest: Open Cases", CurrentValue = Config.AutoQuestOpen, Flag = "AutoQuestOpen", Callback = function(v) Config.AutoQuestOpen = v end })
 TabQuest:CreateToggle({ Name = "Auto Quest: Play Battles", CurrentValue = Config.AutoQuestPlay, Flag = "AutoQuestPlay", Callback = function(v) Config.AutoQuestPlay = v if v then HideBattleUI() end end })
 TabQuest:CreateToggle({ Name = "Auto Quest: Win Battles", CurrentValue = Config.AutoQuestWin, Flag = "AutoQuestWin", Callback = function(v) Config.AutoQuestWin = v if v then HideBattleUI() end end })
+TabQuest:CreateSection("Calendar Quests")
+TabQuest:CreateToggle({ Name = "Auto Calendar Quests", CurrentValue = Config.AutoCalendarQuest, Flag = "AutoCalendarQuest", Callback = function(v) Config.AutoCalendarQuest = v end })
+TabQuest:CreateToggle({ Name = "Auto Win Upgrader Quest", CurrentValue = Config.AutoUpgrader, Flag = "AutoUpgrader", Callback = function(v) Config.AutoUpgrader = v end })
 
 local Label_Open = TabQuest:CreateLabel("Open: ...")
 local Label_Play = TabQuest:CreateLabel("Play: ...")
 local Label_Win  = TabQuest:CreateLabel("Win: ...")
+local Label_Cal  = TabQuest:CreateLabel("Calendar: ...")
 
 task.spawn(function()
     while true do
@@ -633,6 +831,16 @@ task.spawn(function()
         Label_Open:Set(o and ("Open: "..o.Progress.."/"..o.Requirement.." "..o.Subject) or "Open: None")
         Label_Play:Set(p and ("Play: "..p.Progress.."/"..p.Requirement.." "..p.Subject) or "Play: None")
         Label_Win:Set(w and ("Win: "..w.Progress.."/"..w.Requirement) or "Win: None")
+        local calQuests = GetCalendarQuests()
+        local calText = "Calendar: "
+        local activeCal = 0
+        for _, cq in ipairs(calQuests) do
+            if cq.Remaining > 0 then
+                activeCal = activeCal + 1
+                calText = calText .. cq.Type .. " "
+            end
+        end
+        Label_Cal:Set(activeCal > 0 and calText or "Calendar: Done")
     end
 end)
 
