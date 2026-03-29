@@ -193,7 +193,6 @@ local function UpdateLevelCooldowns()
 
         local data = CasesModule[caseId]
         if data and xp >= (data.XPRequirement or 0) then            
-            print("[REMOTE] CheckCooldown:InvokeServer(" .. caseId .. ")")
             local remaining = Remote_CheckCooldown:InvokeServer(caseId)
             local cooldownEnd
 
@@ -232,13 +231,9 @@ local function OpenCase(caseId, isGift, qty, useWild)
 
     local result
     if isGift then
-        print("[REMOTE] OpenCase:InvokeServer(" .. caseId .. ", -1, false)")
         result = Remote_OpenCase:InvokeServer(caseId, -1, false)
-
     else
-        print("[REMOTE] OpenCase:InvokeServer(" .. caseId .. ", " .. (qty or 1) .. ", false, " .. tostring(useWild or false) .. ")")
         result = Remote_OpenCase:InvokeServer(caseId, qty or 1, false, useWild or false)
-
     end
     
     local success = (type(result) == "table" and next(result))
@@ -278,15 +273,12 @@ local function CreateBattle(mode)
     State.IsBusy = true
     
     mode = string.upper(mode)
-    print("[REMOTE] CreateBattle:InvokeServer({PERCHANCE}, 2, " .. mode .. ", false)")
     local id = Remote_CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
 
     task.wait(math.random() * 0.8 + 1.2)
 
     if id then
-        print("[REMOTE] AddBot:FireServer(" .. tostring(id) .. ", Player)")
         Remote_AddBot:FireServer(id, Player)
-
     end
     
     task.wait(math.random() * 0.2 + 0.3)
@@ -341,7 +333,6 @@ local function SellItems()
     end
     
     if #toSell > 0 then
-        print("[REMOTE] Sell:InvokeServer(" .. #toSell .. " items)")
         Remote_Sell:InvokeServer(toSell)
     end
 end
@@ -461,7 +452,6 @@ local function PlayDiceRoll()
     if State.IsBusy then return end
     State.IsBusy = true
     
-    print("[REMOTE] CreateMatch:FireServer(Dice Roll, 1)")
     Remote_CreateMatch:FireServer("Dice Roll", "1")
     
        UI_DiceRoll.Visible = false
@@ -472,7 +462,6 @@ local function PlayDiceRoll()
 
     task.wait(math.random(1.0, 3.0))
     
-    print("[REMOTE] RollDice:FireServer(1, 3)")
     Remote_RollDice:FireServer("1", 3)
     
     UI_DiceRoll.Visible = false
@@ -541,7 +530,6 @@ local function DoUpgrade()
         }
     }
     
-    print("[REMOTE] Upgrade:FireServer(" .. cheapestItem.ItemId .. " -> " .. targetSkin.Key .. ")")
     Remote_Upgrade:FireServer(selectedItems, targetSkin)
     
     task.delay(math.random(6, 8), function()
@@ -551,35 +539,7 @@ local function DoUpgrade()
     return true
 end
 
-local function PrintCalendarQuests()
-    print("=== CALENDAR QUESTS ===")
-    local quests = GetCalendarQuests()
-    if #quests == 0 then
-        print("No calendar quests found")
-        return
-    end
-    for _, q in ipairs(quests) do
-        if q.Remaining > 0 then
-            local desc
-            if q.Type == "Open" then
-                local caseName = CasesModule[q.Subject] and CasesModule[q.Subject].Name or q.Subject
-                desc = string.format("[%d] Open %d %s - Progress: %d/%d", q.Id, q.Requirement, caseName, q.Progress, q.Requirement)
-            elseif q.Type == "Play" then
-                desc = string.format("[%d] Play %d %s battles - Progress: %d/%d", q.Id, q.Requirement, q.Subject, q.Progress, q.Requirement)
-            elseif q.Type == "Win" and q.Subject ~= "" then
-                desc = string.format("[%d] Win %d %s - Progress: %d/%d", q.Id, q.Requirement, q.Subject, q.Progress, q.Requirement)
-            elseif q.Type == "Win" then
-                desc = string.format("[%d] Win %d battles - Progress: %d/%d", q.Id, q.Requirement, q.Progress, q.Requirement)
-            else
-                desc = string.format("[%d] %s %s (Subject: %s) - Progress: %d/%d", q.Id, q.Type, q.Requirement, q.Subject, q.Progress, q.Requirement)
-            end
-            print(desc)
-        end
-    end
-    print("=======================")
-end
 
-PrintCalendarQuests()
 
 --------------------------------------------------------------------------------
 -- MAIN LOOP
@@ -661,21 +621,17 @@ task.spawn(function()
                     if cq.Type == "Open" then
                         local qty = (cq.Remaining > 5) and 5 or cq.Remaining
                         if OpenCase(cq.Subject, false, qty, false) then
-                            PrintCalendarQuests()
                             didCalQuest = true
                         end
                     elseif cq.Type == "Play" then
                         State.LastBattle = now
                         CreateBattle(cq.Subject)
-                        PrintCalendarQuests()
                         didCalQuest = true
                     elseif cq.Type == "Win" and cq.Subject == "Dice Roll" then
                         PlayDiceRoll()
-                        PrintCalendarQuests()
                         didCalQuest = true
                     elseif cq.Type == "Win" and cq.Subject == "Upgrader" then
                         if Config.AutoUpgrader and DoUpgrade() then
-                            PrintCalendarQuests()
                             didCalQuest = true
                         end
                     end
