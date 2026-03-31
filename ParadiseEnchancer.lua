@@ -34,9 +34,10 @@ local Remote_CheckCooldown = Remotes:WaitForChild("CheckCooldown")
 local Remote_AddBot        = Remotes:WaitForChild("AddBot")
 local Remote_StartBattle   = Remotes:WaitForChild("StartBattle")
 local Remote_Sell          = Remotes:WaitForChild("Sell")
-local Remote_CreateMatch   = Remotes:WaitForChild("CreateMatch")
-local Remote_RollDice      = Remotes:WaitForChild("RollDice")
-local Remote_Upgrade       = Remotes:WaitForChild("Upgrade")
+local Remote_CreateMatch      = Remotes:WaitForChild("CreateMatch")
+local Remote_RollDice         = Remotes:WaitForChild("RollDice")
+local Remote_Upgrade          = Remotes:WaitForChild("Upgrade")
+local Remote_AddBotCoinFlip   = Remotes:WaitForChild("AddBotCoinFlip")
 
 
 
@@ -268,17 +269,34 @@ local function HideBattleUI()
     UI_Windows.Enabled = true
 end
 
+local BattlesFolder = ReplicatedStorage:WaitForChild("Battles")
+
+local function FindPlayerBattle()
+    for _, battle in ipairs(BattlesFolder:GetChildren()) do
+        local players = battle:FindFirstChild("Players")
+        if players then
+            for _, p in ipairs(players:GetChildren()) do
+                if p.Name == Player.Name then
+                    return tonumber(battle.Name)
+                end
+            end
+        end
+    end
+    return nil
+end
+
 local function CreateBattle(mode)
     if State.IsBusy then return end
     State.IsBusy = true
     
     mode = string.upper(mode)
-    local id = Remote_CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
+    Remote_CreateBattle:InvokeServer({"PERCHANCE"}, 2, mode, false)
 
     task.wait(math.random() * 0.8 + 1.2)
 
-    if id then
-        Remote_AddBot:FireServer(id, Player)
+    local battleId = FindPlayerBattle()
+    if battleId then
+        Remote_AddBot:FireServer(battleId, Player)
     end
     
     task.wait(math.random() * 0.2 + 0.3)
@@ -448,21 +466,27 @@ local function GetCalendarQuests()
     return quests
 end
 
+local DiceRollsFolder = ReplicatedStorage:WaitForChild("DiceRolls")
+
+local function FindPlayerDiceRoll()
+    for _, match in ipairs(DiceRollsFolder:GetChildren()) do
+        local players = match:FindFirstChild("Players")
+        if players then
+            for _, p in ipairs(players:GetChildren()) do
+                if p.Name == Player.Name then
+                    return match.Name
+                end
+            end
+        end
+    end
+    return nil
+end
+
 local function PlayDiceRoll()
     if State.IsBusy then return end
     State.IsBusy = true
     
     Remote_CreateMatch:FireServer("Dice Roll", "1")
-    
-       UI_DiceRoll.Visible = false
-    UI_Main.Enabled = true
-    UI_Main.ActionBar.Visible = true
-    UI_Main.Currencies.Visible = true
-    UI_Main.SidePanel.Visible = true
-
-    task.wait(math.random(1.0, 3.0))
-    
-    Remote_RollDice:FireServer("1", 3)
     
     UI_DiceRoll.Visible = false
     UI_Main.Enabled = true
@@ -470,6 +494,50 @@ local function PlayDiceRoll()
     UI_Main.Currencies.Visible = true
     UI_Main.SidePanel.Visible = true
 
+    task.wait(math.random(1.0, 3.0))
+    
+    local matchId = FindPlayerDiceRoll()
+    if matchId then
+        Remote_RollDice:FireServer(matchId, 3)
+    end
+    
+    UI_DiceRoll.Visible = false
+    UI_Main.Enabled = true
+    UI_Main.ActionBar.Visible = true
+    UI_Main.Currencies.Visible = true
+    UI_Main.SidePanel.Visible = true
+
+    task.delay(math.random(12, 15), function()
+        State.IsBusy = false
+    end)
+end
+
+local CoinflipFolder = ReplicatedStorage:WaitForChild("Coinflip")
+
+local function FindPlayerCoinflip()
+    for _, match in ipairs(CoinflipFolder:GetChildren()) do
+        local players = match:FindFirstChild("Players")
+        if players then
+            for _, p in ipairs(players:GetChildren()) do
+                if p.Name == Player.Name then
+                    return match.Name
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function PlayCoinflip()
+    if State.IsBusy then return end
+    State.IsBusy = true
+    
+    Remote_CreateMatch:FireServer("Coinflip", "1")
+    
+    task.wait(math.random(1.0, 3.0))
+    
+    Remote_AddBotCoinFlip:FireServer("1")
+    
     task.delay(math.random(12, 15), function()
         State.IsBusy = false
     end)
@@ -629,6 +697,9 @@ task.spawn(function()
                         didCalQuest = true
                     elseif cq.Type == "Win" and cq.Subject == "Dice Roll" then
                         PlayDiceRoll()
+                        didCalQuest = true
+                    elseif cq.Type == "Win" and cq.Subject == "Coinflip" then
+                        PlayCoinflip()
                         didCalQuest = true
                     elseif cq.Type == "Win" and cq.Subject == "Upgrader" then
                         if Config.AutoUpgrader and DoUpgrade() then
