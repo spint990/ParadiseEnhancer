@@ -608,7 +608,7 @@ task.spawn(function()
                 if OpenCase("LIGHT", false, 5, true) then continue end
             end
             if Config.AutoTicketCase and GetTickets() >= 50 then
-                if OpenCase("BloodCase", false, 5, false) then continue end
+                if OpenCase("MoonCase", false, 5, false) then continue end
             end
         end
 
