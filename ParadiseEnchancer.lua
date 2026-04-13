@@ -1,3 +1,22 @@
+--[[
+    Paradise Enhancer v2
+    Executor: Volt
+    Human-like, single action at a time, no config saving
+
+    Priority (sequential, one at a time):
+      1. Gifts (free items)
+      2. Level Cases (cooldown-based free cases)
+      3. Calendar Quests (daily quests including RPS/Dice/Upgrader/Open/Play)
+      4. MoonCase (spend 50+ tickets)
+      5. LIGHT Wild Mode (spend 120k+ dollars for Titan Holo hunt)
+      6. Normal Quests (Play/Win/Open)
+
+    Parallel (run continuously in background):
+      - Sell (periodic)
+      - Event drops / Meteor walk
+      - Bonuses: Rewards
+]]
+
 if not game:IsLoaded() then game.Loaded:Wait() end
 task.wait(math.random(15, 30))
 print("[Enhancer] v2 loaded — starting script")
@@ -311,6 +330,7 @@ local function PlayCoinflip()
     Remote_CreateMatch:FireServer("Coinflip", "1")
     UI_CoinFlip.Visible = false
     UI_Main.Enabled = true
+    UI_Windows.Enabled = true
 
     local timeout = 0
     while not Coinflip_MatchId and timeout < 10 do
