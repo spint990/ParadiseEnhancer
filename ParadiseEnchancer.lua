@@ -6,9 +6,9 @@
     Priority (sequential, one at a time):
       1. Gifts (free items)
       2. Level Cases (cooldown-based free cases)
-      3. Calendar Quests (daily quests including RPS/Dice/Upgrader/Open/Play)
-      4. MoonCase (spend 50+ tickets)
-      5. LIGHT Wild Mode (spend 120k+ dollars for Titan Holo hunt)
+      3. MoonCase (spend 50+ tickets)
+      4. LIGHT Wild Mode (spend 120k+ dollars for Titan Holo hunt)
+      5. Calendar Quests (daily quests including RPS/Dice/Upgrader/Open/Play)
       6. Normal Quests (Play/Win/Open)
 
     Parallel (run continuously in background):
@@ -588,6 +588,47 @@ task.spawn(function()
 end)
 
 --------------------------------------------------------------------------------
+-- SUPPRESS AVATAR EDITOR POPUP
+--------------------------------------------------------------------------------
+task.spawn(function()
+    local CoreGui = game:GetService("CoreGui")
+    local function killPrompt()
+        pcall(function()
+            local app = CoreGui:FindFirstChild("AvatarEditorPromptsApp")
+            if not app then return end
+            local ch = app:FindFirstChild("Children")
+            if not ch then return end
+            for _, child in ipairs(ch:GetChildren()) do
+                if child:IsA("ScreenGui") or child:IsA("BillboardGui") or child:IsA("SurfaceGui") then
+                    child.Enabled = false
+                end
+                if child:IsA("Frame") or child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("ImageLabel") or child:IsA("ImageButton") then
+                    child.Visible = false
+                end
+            end
+        end)
+    end
+    pcall(function()
+        local app = CoreGui:WaitForChild("AvatarEditorPromptsApp", 30)
+        if app then
+            local ch = app:WaitForChild("Children", 30)
+            if ch then
+                ch.ChildAdded:Connect(function(child)
+                    task.wait()
+                    pcall(function() child.Enabled = false end)
+                    pcall(function() child.Visible = false end)
+                    killPrompt()
+                end)
+            end
+        end
+    end)
+    while true do
+        killPrompt()
+        task.wait(0.5)
+    end
+end)
+
+--------------------------------------------------------------------------------
 -- REJOIN
 --------------------------------------------------------------------------------
 local function Rejoin()
@@ -687,7 +728,7 @@ end)
 
 --------------------------------------------------------------------------------
 -- MAIN SEQUENTIAL LOOP (one action at a time)
--- Priority: Gifts -> Level Cases -> Calendar Quests -> MoonCase -> LIGHT Wild -> Quests
+-- Priority: Gifts -> Level Cases -> MoonCase -> LIGHT Wild -> Calendar Quests -> Quests
 --------------------------------------------------------------------------------
 task.spawn(function()
     while true do
@@ -695,9 +736,7 @@ task.spawn(function()
         if State.IsBusy then continue end
         local now = workspace:GetServerTimeNow()
 
-        pcall(function()
-            game:GetService("CoreGui").AvatarEditorPromptsApp.Children.PromptFrame:Destroy()
-        end)
+
 
         if Config.AutoQuestWin or Config.AutoQuestPlay then HideBattleUI() end
 
@@ -735,7 +774,25 @@ task.spawn(function()
             end
         end
 
-        -- 3. CALENDAR QUESTS
+        -- 3. MOONCASE (spend tickets)
+        if Config.AutoTicketCase and not State.IsBusy then
+            local tickets = GetTickets()
+            if tickets >= Config.TicketThreshold then
+                print("[Enhancer] Opening 5x MoonCase ("..tickets.." tickets)")
+                if OpenCase("MoonCase", false, 5, false) then continue end
+            end
+        end
+
+        -- 4. LIGHT WILD MODE (Titan Holo hunt)
+        if Config.AutoLightCase and not State.IsBusy then
+            local balance = GetBalance()
+            if balance >= Config.DollarThreshold then
+                print("[Enhancer] Opening 5x LIGHT Wild ($"..balance..")")
+                if OpenCase("LIGHT", false, 5, true) then continue end
+            end
+        end
+
+        -- 5. CALENDAR QUESTS
         if Config.AutoCalendarQuest and not State.IsBusy then
             local calQuests = GetCalendarQuests()
             for _, cq in ipairs(calQuests) do
@@ -779,24 +836,6 @@ task.spawn(function()
                 end
             end
             if didCal then continue end
-        end
-
-        -- 4. MOONCASE (spend tickets)
-        if Config.AutoTicketCase and not State.IsBusy then
-            local tickets = GetTickets()
-            if tickets >= Config.TicketThreshold then
-                print("[Enhancer] Opening 5x MoonCase ("..tickets.." tickets)")
-                if OpenCase("MoonCase", false, 5, false) then continue end
-            end
-        end
-
-        -- 5. LIGHT WILD MODE (Titan Holo hunt)
-        if Config.AutoLightCase and not State.IsBusy then
-            local balance = GetBalance()
-            if balance >= Config.DollarThreshold then
-                print("[Enhancer] Opening 5x LIGHT Wild ($"..balance..")")
-                if OpenCase("LIGHT", false, 5, true) then continue end
-            end
         end
 
         -- 6. NORMAL QUESTS (Play -> Win -> Open)
