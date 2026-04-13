@@ -592,39 +592,44 @@ end)
 --------------------------------------------------------------------------------
 task.spawn(function()
     local CoreGui = game:GetService("CoreGui")
-    local function killPrompt()
+    local function nukePrompt()
         pcall(function()
             local app = CoreGui:FindFirstChild("AvatarEditorPromptsApp")
             if not app then return end
             local ch = app:FindFirstChild("Children")
-            if not ch then return end
-            for _, child in ipairs(ch:GetChildren()) do
-                if child:IsA("ScreenGui") or child:IsA("BillboardGui") or child:IsA("SurfaceGui") then
-                    child.Enabled = false
-                end
-                if child:IsA("Frame") or child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("ImageLabel") or child:IsA("ImageButton") then
-                    child.Visible = false
+            if ch then
+                for _, child in ipairs(ch:GetChildren()) do
+                    pcall(function() child:Destroy() end)
                 end
             end
+            local pf = app:FindFirstChild("PromptFrame")
+            if pf then pcall(function() pf:Destroy() end) end
         end)
     end
     pcall(function()
         local app = CoreGui:WaitForChild("AvatarEditorPromptsApp", 30)
         if app then
-            local ch = app:WaitForChild("Children", 30)
+            app.ChildAdded:Connect(function()
+                task.wait(0.05)
+                nukePrompt()
+            end)
+            local ch = app:FindFirstChild("Children")
             if ch then
-                ch.ChildAdded:Connect(function(child)
-                    task.wait()
-                    pcall(function() child.Enabled = false end)
-                    pcall(function() child.Visible = false end)
-                    killPrompt()
+                ch.ChildAdded:Connect(function()
+                    task.wait(0.05)
+                    nukePrompt()
+                end)
+            else
+                app:WaitForChild("Children", 30).ChildAdded:Connect(function()
+                    task.wait(0.05)
+                    nukePrompt()
                 end)
             end
         end
     end)
     while true do
-        killPrompt()
-        task.wait(0.5)
+        nukePrompt()
+        task.wait(0.25)
     end
 end)
 
